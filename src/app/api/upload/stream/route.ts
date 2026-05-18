@@ -60,10 +60,11 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const buffer = Buffer.from(await req.arrayBuffer());
-    const dir    = join(UPLOAD_BASE, bucket);
+    const buffer   = Buffer.from(await req.arrayBuffer());
+    const filePath = join(UPLOAD_BASE, bucket, name);
+    const dir      = filePath.substring(0, filePath.lastIndexOf("/"));
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, name), buffer);
+    await writeFile(filePath, buffer);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[upload/stream]", err);
