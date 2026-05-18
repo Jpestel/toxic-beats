@@ -1371,7 +1371,7 @@ function StorageBadge({
     <div className="relative">
       <button
         onClick={() => setExpanded(v => !v)}
-        title="Quota Supabase"
+        title="Stockage serveur"
         className="flex items-center gap-1.5 text-xs transition-colors px-2.5 py-2 rounded-lg bg-[#1a1a1a] border border-transparent hover:border-[#2a2a2a]"
         style={{ color }}
       >
@@ -1392,7 +1392,7 @@ function StorageBadge({
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <p className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase flex items-center gap-1.5">
-              <HardDrive size={11} /> Quota Supabase · Free Plan
+              <HardDrive size={11} /> Stockage Serveur · Dédié
             </p>
             <button
               onClick={(e) => { e.stopPropagation(); onRefresh(); }}
@@ -1409,7 +1409,7 @@ function StorageBadge({
               <span className="text-[10px] font-mono text-white font-bold">Stockage fichiers</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-mono font-bold" style={{ color }}>{fmtBytes(totalBytes)}</span>
-                <span className="text-[10px] font-mono text-neutral-600">/ 1 GB</span>
+                <span className="text-[10px] font-mono text-neutral-600">/ {fmtBytes(quotaBytes)}</span>
               </div>
             </div>
             <StorageBar used={totalBytes} total={quotaBytes} color={color} />
@@ -1435,21 +1435,12 @@ function StorageBadge({
             </div>
           </div>
 
-          {/* ── BANDE PASSANTE ── */}
+          {/* ── INFOS SERVEUR ── */}
           <div className="mb-4 border-t border-[#1e1e1e] pt-3">
-            <p className="text-[10px] font-mono text-white font-bold mb-1.5">Bande passante (Egress)</p>
+            <p className="text-[10px] font-mono text-white font-bold mb-1.5">Serveur dédié</p>
             <p className="text-[10px] font-mono text-neutral-500 leading-relaxed">
-              Visible dans le dashboard Supabase · Quota : 5 GB/mois
+              87.106.196.227 · /var/www/toxic-files · Bande passante illimitée
             </p>
-            <a
-              href="https://supabase.com/dashboard/org/_/usage"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-mono text-[#00f5ff] hover:text-white transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              → Voir dans Supabase ↗
-            </a>
           </div>
 
           {/* ── DATE DE REMISE À ZÉRO ── */}
@@ -1471,9 +1462,9 @@ function StorageBadge({
             <div className="mt-3 px-3 py-2 rounded-lg text-[10px] font-mono"
               style={{ background: `${color}10`, border: `1px solid ${color}30`, color }}>
               {pct >= 95
-                ? "🔴 Quota critique — uploads bloqués imminents."
+                ? "🔴 Espace critique — libère des fichiers."
                 : pct >= 85
-                ? "🟠 Plus de 85% — pense à passer en Pro ($25/mois)."
+                ? "🟠 Plus de 85% — pense à nettoyer les anciens fichiers."
                 : "🟡 Plus de 80% — surveille l'espace restant."}
             </div>
           )}
