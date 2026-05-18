@@ -42,7 +42,14 @@ export default function AdminPage() {
   const [sendingFilesId, setSendingFilesId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [storageInfo, setStorageInfo] = useState<{ totalBytes: number; quotaBytes: number } | null>(null);
+  const [storageInfo, setStorageInfo] = useState<{
+    totalBytes: number;
+    beatBytes: number;
+    previewBytes: number;
+    coverBytes: number;
+    quotaBytes: number;
+    resetDate: string;
+  } | null>(null);
 
   // Check session on mount
   useEffect(() => {
@@ -88,7 +95,14 @@ export default function AdminPage() {
       });
       if (res.ok) {
         const d = await res.json();
-        setStorageInfo({ totalBytes: d.totalBytes, quotaBytes: d.quotaBytes });
+        setStorageInfo({
+          totalBytes: d.totalBytes,
+          beatBytes: d.beatBytes,
+          previewBytes: d.previewBytes,
+          coverBytes: d.coverBytes,
+          quotaBytes: d.quotaBytes,
+          resetDate: d.resetDate,
+        });
       }
     } catch { /* silencieux */ }
   }, []);
@@ -1316,35 +1330,53 @@ function fmtBytes(bytes: number): string {
   return `${bytes} B`;
 }
 
+function StorageBar({ used, total, color }: { used: number; total: number; color: string }) {
+  const pct = Math.min((used / total) * 100, 100);
+  return (
+    <div className="h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden">
+      <div className="h-full rounded-full transition-all duration-500"
+        style={{ width: `${pct}%`, background: color, boxShadow: `0 0 6px ${color}60` }} />
+    </div>
+  );
+}
+
 function StorageBadge({
-  totalBytes,
-  quotaBytes,
-  onRefresh,
+  totalBytes, beatBytes, previewBytes, coverBytes, quotaBytes, resetDate, onRefresh,
 }: {
   totalBytes: number;
+  beatBytes: number;
+  previewBytes: number;
+  coverBytes: number;
   quotaBytes: number;
+  resetDate: string;
   onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const pct = Math.min((totalBytes / quotaBytes) * 100, 100);
 
-  // Couleur selon le remplissage
   const color =
     pct >= 85 ? "#ef4444" :
     pct >= 60 ? "#f59e0b" :
     "#39ff14";
 
+  // Jours restants avant remise à zéro
+  const daysLeft = Math.ceil(
+    (new Date(resetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+  const resetLabel = new Date(resetDate).toLocaleDateString("fr-FR", {
+    day: "numeric", month: "long", year: "numeric",
+  });
+
   return (
     <div className="relative">
       <button
         onClick={() => setExpanded(v => !v)}
-        title="Espace de stockage"
+        title="Quota Supabase"
         className="flex items-center gap-1.5 text-xs transition-colors px-2.5 py-2 rounded-lg bg-[#1a1a1a] border border-transparent hover:border-[#2a2a2a]"
         style={{ color }}
       >
         <HardDrive size={13} />
         <span className="hidden sm:inline font-mono">{fmtBytes(totalBytes)}</span>
-        {/* mini barre */}
         <span className="hidden sm:flex w-12 h-1.5 rounded-full bg-[#2a2a2a] overflow-hidden">
           <span className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
         </span>
@@ -1354,15 +1386,16 @@ function StorageBadge({
       {/* Popover détaillé */}
       {expanded && (
         <div
-          className="absolute right-0 top-full mt-2 z-50 rounded-xl border border-[#2a2a2a] bg-[#111] shadow-2xl p-4 min-w-[240px]"
-          style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.6)" }}
+          className="absolute right-0 top-full mt-2 z-50 rounded-xl border border-[#2a2a2a] bg-[#111] shadow-2xl p-4 w-[300px]"
+          style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.7)" }}
         >
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] font-mono tracking-widest text-neutral-500 uppercase flex items-center gap-1.5">
-              <HardDrive size={11} /> Stockage audio
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[10px] font-mono tracking-widest text-neutral-400 uppercase flex items-center gap-1.5">
+              <HardDrive size={11} /> Quota Supabase · Free Plan
             </p>
             <button
-              onClick={(e) => { e.stopPropagation(); onRefresh(); setExpanded(false); }}
+              onClick={(e) => { e.stopPropagation(); onRefresh(); }}
               className="text-neutral-600 hover:text-white transition-colors"
               title="Recalculer"
             >
@@ -1370,47 +1403,78 @@ function StorageBadge({
             </button>
           </div>
 
-          {/* Barre principale */}
-          <div className="mb-3">
-            <div className="flex justify-between text-[10px] font-mono mb-1.5">
-              <span style={{ color }}>{fmtBytes(totalBytes)}</span>
-              <span className="text-neutral-600">/ {fmtBytes(quotaBytes)}</span>
+          {/* ── STOCKAGE FICHIERS ── */}
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-mono text-white font-bold">Stockage fichiers</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono font-bold" style={{ color }}>{fmtBytes(totalBytes)}</span>
+                <span className="text-[10px] font-mono text-neutral-600">/ 1 GB</span>
+              </div>
             </div>
-            <div className="h-2.5 rounded-full bg-[#1a1a1a] overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${pct}%`,
-                  background: pct >= 85
-                    ? "linear-gradient(90deg, #ef4444, #ff6666)"
-                    : pct >= 60
-                    ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
-                    : "linear-gradient(90deg, #39ff14, #00f5ff)",
-                  boxShadow: `0 0 8px ${color}60`,
-                }}
-              />
-            </div>
-            <p className="text-right text-[10px] font-mono mt-1" style={{ color }}>
-              {pct.toFixed(1)}% utilisé · {fmtBytes(quotaBytes - totalBytes)} restants
+            <StorageBar used={totalBytes} total={quotaBytes} color={color} />
+            <p className="text-right text-[10px] font-mono mt-1 text-neutral-600">
+              {pct.toFixed(1)}% · {fmtBytes(Math.max(0, quotaBytes - totalBytes))} restants
             </p>
+
+            {/* Détail par bucket */}
+            <div className="mt-2.5 space-y-1.5 border-t border-[#1e1e1e] pt-2.5">
+              {[
+                { label: "Beats · WAV · ZIP", bytes: beatBytes, color: "#b400ff" },
+                { label: "Extraits audio",     bytes: previewBytes, color: "#00f5ff" },
+                { label: "Covers",             bytes: coverBytes, color: "#f59e0b" },
+              ].map(({ label, bytes, color: c }) => (
+                <div key={label}>
+                  <div className="flex justify-between text-[10px] font-mono mb-1">
+                    <span className="text-neutral-500">{label}</span>
+                    <span style={{ color: c }}>{fmtBytes(bytes)}</span>
+                  </div>
+                  <StorageBar used={bytes} total={quotaBytes} color={c} />
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Légende */}
-          <div className="space-y-1 border-t border-[#1a1a1a] pt-2.5">
-            <div className="flex justify-between text-[10px] font-mono">
-              <span className="text-neutral-500">Beats · WAV · ZIP · Extraits</span>
-              <span className="text-neutral-400">{fmtBytes(totalBytes)}</span>
+          {/* ── BANDE PASSANTE ── */}
+          <div className="mb-4 border-t border-[#1e1e1e] pt-3">
+            <p className="text-[10px] font-mono text-white font-bold mb-1.5">Bande passante (Egress)</p>
+            <p className="text-[10px] font-mono text-neutral-500 leading-relaxed">
+              Visible dans le dashboard Supabase · Quota : 5 GB/mois
+            </p>
+            <a
+              href="https://supabase.com/dashboard/org/_/usage"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-mono text-[#00f5ff] hover:text-white transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              → Voir dans Supabase ↗
+            </a>
+          </div>
+
+          {/* ── DATE DE REMISE À ZÉRO ── */}
+          <div className="border-t border-[#1e1e1e] pt-3 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Remise à zéro</p>
+              <p className="text-xs font-bold text-white mt-0.5">{resetLabel}</p>
             </div>
-            <div className="flex justify-between text-[10px] font-mono">
-              <span className="text-neutral-600">Quota Supabase</span>
-              <span className="text-neutral-600">5 GB</span>
+            <div className="text-right">
+              <p className="text-[10px] font-mono text-neutral-600">dans</p>
+              <p className="text-lg font-black" style={{ color: daysLeft <= 7 ? "#f59e0b" : "#00f5ff" }}>
+                {daysLeft}j
+              </p>
             </div>
           </div>
 
+          {/* Alerte quota */}
           {pct >= 80 && (
-            <div className="mt-2.5 px-3 py-2 rounded-lg text-[10px] font-mono"
+            <div className="mt-3 px-3 py-2 rounded-lg text-[10px] font-mono"
               style={{ background: `${color}10`, border: `1px solid ${color}30`, color }}>
-              {pct >= 90 ? "⚠ Quota critique — libère de l'espace." : "⚠ Plus de 80% utilisé — surveille le quota."}
+              {pct >= 95
+                ? "🔴 Quota critique — uploads bloqués imminents."
+                : pct >= 85
+                ? "🟠 Plus de 85% — pense à passer en Pro ($25/mois)."
+                : "🟡 Plus de 80% — surveille l'espace restant."}
             </div>
           )}
         </div>
