@@ -24,7 +24,7 @@ function pickFromLibrary(id: string, library: string[]): string | null {
 const LICENSE_LABELS: Record<LicenseType, string> = {
   mp3: "MP3",
   wav: "MP3+WAV",
-  exclusive: "EXCLU",
+  exclusive: "ZIP EXCLU",
 };
 
 export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, genreCovers, coverLibrary }: Props) {

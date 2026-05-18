@@ -6,8 +6,8 @@ import type { Beat, LicenseType } from "@/types";
 
 const LICENSE_LABELS: Record<LicenseType, string> = {
   mp3: "MP3",
-  wav: "WAV",
-  exclusive: "EXCLUSIF",
+  wav: "MP3 + WAV",
+  exclusive: "ZIP Exclusif complet",
 };
 
 type Props = {
