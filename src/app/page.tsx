@@ -52,18 +52,35 @@ export default function HomePage() {
 
   const addToCart = (beat: Beat, licenseType: LicenseType = "mp3") => {
     if (beat.status === "sold") return;
-    // Autoriser plusieurs licences pour un même beat, mais pas la même licence deux fois
-    if (cart.some((i) => i.type === "beat" && i.beat.id === beat.id && i.licenseType === licenseType)) return;
+
+    const existingItem = cart.find((i) => i.type === "beat" && i.beat.id === beat.id);
+
+    // Si l'Exclusive est déjà dans le panier, bloquer l'ajout de MP3/WAV
+    if (existingItem?.type === "beat" && existingItem.licenseType === "exclusive" && licenseType !== "exclusive") return;
+
+    // Si on ajoute la même licence déjà présente, ne rien faire
+    if (existingItem?.type === "beat" && existingItem.licenseType === licenseType) return;
+
     const price =
       licenseType === "exclusive" ? (beat.exclusive_price ?? beat.price) :
       licenseType === "wav" ? beat.price + (beat.wav_extra ?? 0) :
       beat.price;
     const item: BeatCartItem = { type: "beat", beat, licenseType, price };
-    setCart((prev) => [...prev, item]);
+
+    // Remplacer l'ancienne licence par la nouvelle (un seul item par beat)
+    setCart((prev) => {
+      const filtered = prev.filter((i) => !(i.type === "beat" && i.beat.id === beat.id));
+      return [...filtered, item];
+    });
+
     setCartNotif({ beat, price, licenseType });
+
     // Réservation locale uniquement pour les licences exclusives
     if (licenseType === "exclusive") {
       setBeats((prev) => prev.map((b) => b.id === beat.id ? { ...b, status: "reserved" as const } : b));
+    } else if (existingItem?.type === "beat" && existingItem.licenseType === "exclusive") {
+      // Si on remplaçait un exclusive par une licence inférieure (ne devrait pas arriver), libérer la réservation
+      setBeats((prev) => prev.map((b) => b.id === beat.id ? { ...b, status: "available" as const } : b));
     }
   };
 
@@ -78,7 +95,7 @@ export default function HomePage() {
       // Clé composite pour les beats : "beatId|licenseType"
       const [beatId, licenseType] = key.split("|") as [string, LicenseType];
       const item = cart.find((i) => i.type === "beat" && i.beat.id === beatId && i.licenseType === licenseType);
-      setCart((prev) => prev.filter((i) => !(i.type === "beat" && i.beat.id === beatId && i.licenseType === licenseType)));
+      setCart((prev) => prev.filter((i) => !(i.type === "beat" && i.beat.id === beatId)));
       if (item?.type === "beat" && item.licenseType === "exclusive") {
         setBeats((prev) => prev.map((b) => b.id === beatId ? { ...b, status: "available" as const } : b));
       }
