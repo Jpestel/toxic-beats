@@ -1,5 +1,16 @@
+/**
+ * /api/upload/presign — génère des URLs d'upload locales signées.
+ * Remplace les anciennes URLs Supabase Storage signées.
+ * Le client fait ensuite un PUT sur /api/upload/stream?bucket=...&name=...&token=...
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { createHmac } from "crypto";
+
+const UPLOAD_SECRET  = process.env.UPLOAD_SECRET ?? "toxic-upload-secret-change-me";
+const FILES_BASE_URL = process.env.FILES_BASE_URL ?? "https://toxic-files.com/files";
+const SITE_URL       = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
 
 async function getAuthedUser(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -11,95 +22,51 @@ async function getAuthedUser(req: NextRequest) {
   return data.user;
 }
 
+/** Génère un token HMAC valide 30 minutes */
+function makeToken(bucket: string, filename: string): string {
+  const expires = Date.now() + 30 * 60 * 1000;
+  const payload = `${bucket}|${filename}|${expires}`;
+  const sig = createHmac("sha256", UPLOAD_SECRET).update(payload).digest("hex");
+  return Buffer.from(`${payload}|${sig}`).toString("base64url");
+}
+
+/** URL d'upload vers notre propre API */
+function uploadUrl(bucket: string, name: string): string {
+  const token = makeToken(bucket, name);
+  return `${SITE_URL}/api/upload/stream?bucket=${encodeURIComponent(bucket)}&name=${encodeURIComponent(name)}&token=${token}`;
+}
+
+/** URL publique du fichier servi par Nginx */
+function publicUrl(bucket: string, name: string): string {
+  return `${FILES_BASE_URL}/${bucket}/${name}`;
+}
+
 export async function POST(req: NextRequest) {
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-  const { previewName, fullName, wavName, zipName, coverName, kitPreviewName, kitZipName } = await req.json();
-  const db = supabaseAdmin();
-
-  let previewSignedUrl = null;
-  let previewPublicUrl = null;
-  if (previewName) {
-    const { data: previewSigned, error: prevErr } = await db.storage
-      .from("previews")
-      .createSignedUploadUrl(previewName);
-    if (prevErr) return NextResponse.json({ error: prevErr.message }, { status: 500 });
-    previewSignedUrl = previewSigned.signedUrl;
-    const { data: publicData } = db.storage.from("previews").getPublicUrl(previewName);
-    previewPublicUrl = publicData.publicUrl;
-  }
-
-  let fullSignedUrl = null;
-  if (fullName) {
-    const { data: fullSigned, error: fullErr } = await db.storage
-      .from("beats")
-      .createSignedUploadUrl(fullName);
-    if (fullErr) return NextResponse.json({ error: fullErr.message }, { status: 500 });
-    fullSignedUrl = fullSigned.signedUrl;
-  }
-
-  let wavSignedUrl = null;
-  if (wavName) {
-    const { data: wavSigned, error: wavErr } = await db.storage
-      .from("beats")
-      .createSignedUploadUrl(wavName);
-    if (wavErr) return NextResponse.json({ error: wavErr.message }, { status: 500 });
-    wavSignedUrl = wavSigned.signedUrl;
-  }
-
-  let zipSignedUrl = null;
-  if (zipName) {
-    const { data: zipSigned, error: zipErr } = await db.storage
-      .from("beats")
-      .createSignedUploadUrl(zipName);
-    if (zipErr) return NextResponse.json({ error: zipErr.message }, { status: 500 });
-    zipSignedUrl = zipSigned.signedUrl;
-  }
-
-  let coverSignedUrl = null;
-  let coverPublicUrl = null;
-  if (coverName) {
-    const { data: coverSigned, error: coverErr } = await db.storage
-      .from("covers")
-      .createSignedUploadUrl(coverName);
-    if (coverErr) return NextResponse.json({ error: coverErr.message }, { status: 500 });
-    coverSignedUrl = coverSigned.signedUrl;
-    const { data: coverPublic } = db.storage.from("covers").getPublicUrl(coverName);
-    coverPublicUrl = coverPublic.publicUrl;
-  }
-
-  let kitPreviewSignedUrl = null;
-  let kitPreviewPublicUrl = null;
-  if (kitPreviewName) {
-    const { data: kitPreviewSigned, error: kitPrevErr } = await db.storage
-      .from("previews")
-      .createSignedUploadUrl(kitPreviewName);
-    if (kitPrevErr) return NextResponse.json({ error: kitPrevErr.message }, { status: 500 });
-    kitPreviewSignedUrl = kitPreviewSigned.signedUrl;
-    const { data: kitPreviewPublic } = db.storage.from("previews").getPublicUrl(kitPreviewName);
-    kitPreviewPublicUrl = kitPreviewPublic.publicUrl;
-  }
-
-  let kitZipSignedUrl = null;
-  if (kitZipName) {
-    const { data: kitZipSigned, error: kitZipErr } = await db.storage
-      .from("beats")
-      .createSignedUploadUrl(kitZipName);
-    if (kitZipErr) return NextResponse.json({ error: kitZipErr.message }, { status: 500 });
-    kitZipSignedUrl = kitZipSigned.signedUrl;
-  }
+  const {
+    previewName, fullName, wavName, zipName, coverName,
+    kitPreviewName, kitZipName,
+  } = await req.json();
 
   return NextResponse.json({
-    previewSignedUrl,
-    fullSignedUrl,
-    wavSignedUrl,
-    zipSignedUrl,
-    previewPublicUrl,
-    coverSignedUrl,
-    coverPublicUrl,
-    kitPreviewSignedUrl,
-    kitPreviewPublicUrl,
-    kitZipSignedUrl,
+    // Preview
+    previewSignedUrl:    previewName    ? uploadUrl("previews", previewName)    : null,
+    previewPublicUrl:    previewName    ? publicUrl("previews",  previewName)    : null,
+    // MP3 complet
+    fullSignedUrl:       fullName       ? uploadUrl("beats",    fullName)        : null,
+    // WAV
+    wavSignedUrl:        wavName        ? uploadUrl("beats",    wavName)         : null,
+    // ZIP stems
+    zipSignedUrl:        zipName        ? uploadUrl("beats",    zipName)         : null,
+    // Cover
+    coverSignedUrl:      coverName      ? uploadUrl("covers",   coverName)       : null,
+    coverPublicUrl:      coverName      ? publicUrl("covers",    coverName)       : null,
+    // Kit preview
+    kitPreviewSignedUrl: kitPreviewName ? uploadUrl("previews", kitPreviewName)  : null,
+    kitPreviewPublicUrl: kitPreviewName ? publicUrl("previews",  kitPreviewName)  : null,
+    // Kit ZIP
+    kitZipSignedUrl:     kitZipName     ? uploadUrl("beats",    kitZipName)      : null,
   });
 }
