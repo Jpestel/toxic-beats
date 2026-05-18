@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { sendAdminNewOrderEmail } from "@/lib/email";
 
 async function getAuthedUser(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -9,6 +10,20 @@ async function getAuthedUser(req: NextRequest) {
   const { data, error } = await db.auth.getUser(token);
   if (error || !data.user) return null;
   return data.user;
+}
+
+/** Récupère le contact_email configuré dans les settings admin */
+async function getAdminEmail(db: ReturnType<typeof supabaseAdmin>): Promise<string | null> {
+  const { data } = await db.from("settings").select("value").eq("key", "contact_email").single();
+  return data?.value ?? null;
+}
+
+/** Récupère l'URL du site (pour le lien "Voir dans l'admin") */
+function getAdminUrl(): string {
+  const base = process.env.NEXT_PUBLIC_SITE_URL ?? process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+  return `${base}/admin`;
 }
 
 // POST — création d'une commande (public, pas besoin d'être connecté)
@@ -41,6 +56,21 @@ export async function POST(req: NextRequest) {
       });
 
       if (error) throw error;
+
+      // Notif admin
+      const adminEmail = await getAdminEmail(db);
+      if (adminEmail) {
+        sendAdminNewOrderEmail({
+          adminEmail,
+          buyerName: buyer_name,
+          buyerEmail: buyer_email,
+          productTitle: beat_title,
+          productType: "kit",
+          amount,
+          adminUrl: getAdminUrl(),
+        }).catch(console.error);
+      }
+
       return NextResponse.json({ success: true });
     }
 
@@ -98,6 +128,21 @@ export async function POST(req: NextRequest) {
         await db.from("beats").update({ status: "available" }).eq("id", beat_id);
       }
       throw error;
+    }
+
+    // Notif admin
+    const adminEmail = await getAdminEmail(db);
+    if (adminEmail) {
+      sendAdminNewOrderEmail({
+        adminEmail,
+        buyerName: buyer_name,
+        buyerEmail: buyer_email,
+        productTitle: beat_title,
+        productType: "beat",
+        licenseType: license_type,
+        amount,
+        adminUrl: getAdminUrl(),
+      }).catch(console.error);
     }
 
     return NextResponse.json({ success: true });

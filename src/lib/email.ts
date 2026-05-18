@@ -257,6 +257,141 @@ export async function sendDownloadLinkEmail(params: DownloadEmailParams): Promis
   }
 }
 
+type AdminNewOrderParams = {
+  adminEmail: string;
+  buyerName: string;
+  buyerEmail: string;
+  productTitle: string;
+  productType: "beat" | "kit";
+  licenseType?: string;
+  amount: number;
+  adminUrl: string;
+};
+
+function buildAdminNotifHtml(p: AdminNewOrderParams): string {
+  const licenseLabel =
+    p.productType === "kit"         ? "Kit de Samples" :
+    p.licenseType === "exclusive"   ? "Licence Exclusive 🔒" :
+    p.licenseType === "wav"         ? "Licence MP3 + WAV" :
+                                      "Licence MP3";
+
+  const accentColor = p.productType === "kit" ? "#f59e0b" : "#b400ff";
+
+  return `
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#080808;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width:480px;background:#111111;border-radius:16px;border:1px solid #2a2a2a;overflow:hidden;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,${accentColor},${p.productType === "kit" ? "#b87009" : "#7000cc"});padding:22px 24px;text-align:center;">
+              <div style="font-size:28px;font-weight:900;color:#fff;letter-spacing:4px;">TOXIC</div>
+              <div style="font-size:11px;color:#ffffff99;letter-spacing:6px;margin-top:2px;">NOUVELLE COMMANDE</div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:28px 24px;">
+              <p style="color:#e0e0e0;font-size:16px;font-weight:bold;margin:0 0 20px;">
+                🔔 Nouvelle commande reçue !
+              </p>
+
+              <!-- Produit -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;margin-bottom:16px;">
+                <tr>
+                  <td style="padding:14px 16px;border-bottom:1px solid #222;">
+                    <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px;">Produit</div>
+                    <div style="font-size:16px;font-weight:bold;color:#fff;">${p.productTitle}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;border-bottom:1px solid #222;">
+                    <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;">Licence</div>
+                    <span style="font-size:12px;font-family:monospace;font-weight:bold;color:${accentColor};">${licenseLabel}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;">
+                    <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;">Montant</div>
+                    <div style="font-size:22px;font-weight:900;color:${accentColor};">${p.amount}€</div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Acheteur -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+                <tr>
+                  <td style="padding:10px 16px;border-bottom:1px solid #222;">
+                    <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;">Acheteur</div>
+                    <div style="font-size:14px;color:#fff;font-weight:bold;">${p.buyerName}</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:10px 16px;">
+                    <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:2px;">Email</div>
+                    <a href="mailto:${p.buyerEmail}" style="font-size:13px;font-family:monospace;color:${accentColor};text-decoration:none;">${p.buyerEmail}</a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA admin -->
+              <div style="text-align:center;">
+                <a href="${p.adminUrl}"
+                   style="display:inline-block;background:linear-gradient(135deg,${accentColor},${p.productType === "kit" ? "#b87009" : "#7000cc"});color:${p.productType === "kit" ? "#000" : "#fff"};font-size:13px;font-weight:900;text-decoration:none;padding:13px 28px;border-radius:12px;letter-spacing:1px;text-transform:uppercase;">
+                  Voir dans l'admin →
+                </a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:14px 24px;border-top:1px solid #1a1a1a;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#444;">TOXIC Beatmaker · Notification automatique</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `.trim();
+}
+
+export async function sendAdminNewOrderEmail(params: AdminNewOrderParams): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || apiKey === "re_VOTRE_CLE_ICI") {
+    console.warn("[email] RESEND_API_KEY non configurée — notif admin non envoyée.");
+    return;
+  }
+
+  const resend = new Resend(apiKey);
+  const from = `${process.env.RESEND_FROM_NAME ?? "TOXIC Beatmaker"} <${process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"}>`;
+
+  const subject = params.productType === "kit"
+    ? `🔔 Nouvelle commande kit — ${params.productTitle} (${params.amount}€)`
+    : `🔔 Nouvelle commande — ${params.productTitle} (${params.amount}€)`;
+
+  const { error } = await resend.emails.send({
+    from,
+    to: params.adminEmail,
+    subject,
+    html: buildAdminNotifHtml(params),
+  });
+
+  if (error) {
+    console.error("[email] Erreur notif admin :", error);
+  }
+}
+
 export async function sendOrderConfirmationEmail(params: OrderEmailParams): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey === "re_VOTRE_CLE_ICI") {
