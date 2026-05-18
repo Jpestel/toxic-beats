@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { createHmac } from "crypto";
+
+const UPLOAD_SECRET  = process.env.UPLOAD_SECRET ?? "toxic-upload-secret-change-me";
+const FILES_BASE_URL = process.env.FILES_BASE_URL ?? "https://toxic-files.com/files";
+const SITE_URL       = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
 
 async function getAuthedUser(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -9,6 +14,14 @@ async function getAuthedUser(req: NextRequest) {
   const { data, error } = await db.auth.getUser(token);
   if (error || !data.user) return null;
   return data.user;
+}
+
+/** Génère un token HMAC valide 30 minutes */
+function makeToken(bucket: string, filename: string): string {
+  const expires = Date.now() + 30 * 60 * 1000;
+  const payload = `${bucket}|${filename}|${expires}`;
+  const sig = createHmac("sha256", UPLOAD_SECRET).update(payload).digest("hex");
+  return Buffer.from(`${payload}|${sig}`).toString("base64url");
 }
 
 // GET — récupère l'URL et le mode d'affichage de la bannière (public)
@@ -24,24 +37,17 @@ export async function GET() {
   return NextResponse.json(result);
 }
 
-// POST — génère une URL présignée pour uploader la bannière
+// POST — génère une URL d'upload signée vers le serveur local
 export async function POST(req: NextRequest) {
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { fileName } = await req.json();
-  const db = supabaseAdmin();
-
-  const { data: signed, error } = await db.storage
-    .from("banners")
-    .createSignedUploadUrl(fileName);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const { data: publicData } = db.storage.from("banners").getPublicUrl(fileName);
+  const token = makeToken("banners", fileName);
 
   return NextResponse.json({
-    signedUrl: signed.signedUrl,
-    publicUrl: publicData.publicUrl,
+    signedUrl: `${SITE_URL}/api/upload/stream?bucket=banners&name=${encodeURIComponent(fileName)}&token=${token}`,
+    publicUrl: `${FILES_BASE_URL}/banners/${fileName}`,
   });
 }
 
