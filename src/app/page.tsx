@@ -228,18 +228,18 @@ export default function HomePage() {
       <div className="sticky top-0 z-50 w-full border-b border-[#1a1a1a] backdrop-blur-md" style={{ background: `${theme.color_bg}f2` }}>
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2 group shrink-0">
             <span className="text-xl font-black tracking-widest text-white transition-all"
               style={{ textShadow: `0 0 10px ${theme.color_accent}99` }}>
               {theme.site_name || "TOXIC"}
             </span>
-            <span className="text-[10px] font-mono tracking-[0.3em] uppercase mt-0.5" style={{ color: theme.color_accent }}>
+            <span className="text-[10px] font-mono tracking-[0.3em] uppercase mt-0.5 hidden sm:block" style={{ color: theme.color_accent }}>
               {theme.site_tagline || "Beatmaker"}
             </span>
           </Link>
 
           {/* Actions — ordre défini par nav_order */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {(theme.nav_order ?? ["beats", "kits", "about", "contact"]).map((id) => {
               if (id === "beats") return (
                 <button

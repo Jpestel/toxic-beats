@@ -192,18 +192,18 @@ export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, 
           <span className="text-[10px] lg:text-xs text-neutral-500 font-mono">{beat.bpm} BPM</span>
         </div>
 
-        {/* Waveform — desktop seulement */}
+        {/* Waveform */}
         <div
-          className="relative h-12 rounded-lg bg-[#1a1a1a] cursor-pointer mb-3 overflow-hidden items-center hidden lg:flex"
+          className="relative h-10 sm:h-12 rounded-lg bg-[#1a1a1a] cursor-pointer mb-3 overflow-hidden flex items-center"
           onClick={handleSeek}
         >
           <div className="absolute inset-0 flex items-center gap-[2px] px-2 opacity-40">
-            {Array.from({ length: 60 }, (_, i) => (
+            {Array.from({ length: 40 }, (_, i) => (
               <div key={i} className="flex-1 rounded-sm"
                 style={{
                   height: `${20 + Math.sin(i * 0.5) * 15 + Math.random() * 10}%`,
                   background: color,
-                  opacity: (i / 60) * 100 < progress ? 1 : 0.3,
+                  opacity: (i / 40) * 100 < progress ? 1 : 0.3,
                 }} />
             ))}
           </div>
