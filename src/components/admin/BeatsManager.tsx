@@ -386,6 +386,28 @@ function BeatRow({ beat, genreColors, onEdit, onDelete, onToggleVisible, editing
               <audio src={beat.preview_url} controls className="w-full h-8" />
             </div>
           )}
+
+          {/* Dates */}
+          <div className="flex flex-wrap gap-4 border-t border-[#1e1e1e] pt-3">
+            <div>
+              <p className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase mb-0.5">Ajouté le</p>
+              <p className="text-[10px] font-mono text-neutral-400">
+                {new Date(beat.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                {" · "}
+                {new Date(beat.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+            {beat.updated_at && beat.updated_at !== beat.created_at && (
+              <div>
+                <p className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase mb-0.5">Modifié le</p>
+                <p className="text-[10px] font-mono text-neutral-400">
+                  {new Date(beat.updated_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                  {" · "}
+                  {new Date(beat.updated_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

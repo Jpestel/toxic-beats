@@ -26,6 +26,7 @@ export type Beat = {
   key?: string | null;
   duration?: number | null;
   created_at: string;
+  updated_at?: string | null;
 };
 
 export type Kit = {
@@ -39,6 +40,7 @@ export type Kit = {
   image_url?: string | null;
   status: "available" | "hidden";
   created_at: string;
+  updated_at?: string | null;
 };
 
 export type BeatCartItem = {
