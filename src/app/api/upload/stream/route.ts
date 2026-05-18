@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { join, dirname } from "path";
 
 const UPLOAD_SECRET   = process.env.UPLOAD_SECRET ?? "toxic-upload-secret-change-me";
 const UPLOAD_BASE     = process.env.UPLOAD_SERVER_PATH ?? "/var/www/toxic-files";
@@ -62,8 +62,11 @@ export async function PUT(req: NextRequest) {
   try {
     const buffer   = Buffer.from(await req.arrayBuffer());
     const filePath = join(UPLOAD_BASE, bucket, name);
-    const dir      = filePath.substring(0, filePath.lastIndexOf("/"));
-    await mkdir(dir, { recursive: true });
+    try {
+      await mkdir(dirname(filePath), { recursive: true });
+    } catch (e: any) {
+      if (e?.code !== "EEXIST") throw e;
+    }
     await writeFile(filePath, buffer);
     return NextResponse.json({ success: true });
   } catch (err) {
