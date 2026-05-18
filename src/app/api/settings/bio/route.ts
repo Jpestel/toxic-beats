@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { createHmac } from "crypto";
+
+const UPLOAD_SECRET  = process.env.UPLOAD_SECRET ?? "toxic-upload-secret-change-me";
+const FILES_BASE_URL = process.env.FILES_BASE_URL ?? "https://toxic-files.com/files";
+const SITE_URL       = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
 
 async function getAuthedUser(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -9,6 +14,13 @@ async function getAuthedUser(req: NextRequest) {
   const { data, error } = await db.auth.getUser(token);
   if (error || !data.user) return null;
   return data.user;
+}
+
+function makeToken(bucket: string, filename: string): string {
+  const expires = Date.now() + 30 * 60 * 1000;
+  const payload = `${bucket}|${filename}|${expires}`;
+  const sig = createHmac("sha256", UPLOAD_SECRET).update(payload).digest("hex");
+  return Buffer.from(`${payload}|${sig}`).toString("base64url");
 }
 
 // GET — lecture publique de bio_text et bio_image_url
@@ -24,22 +36,18 @@ export async function GET() {
   return NextResponse.json(result);
 }
 
-// POST — URL présignée pour uploader la photo de bio
+// POST — URL d'upload signée vers le serveur local
 export async function POST(req: NextRequest) {
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { fileName } = await req.json();
-  const db = supabaseAdmin();
+  const token = makeToken("bio", fileName);
 
-  const { data: signed, error } = await db.storage
-    .from("bio")
-    .createSignedUploadUrl(fileName);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const { data: publicData } = db.storage.from("bio").getPublicUrl(fileName);
-
-  return NextResponse.json({ signedUrl: signed.signedUrl, publicUrl: publicData.publicUrl });
+  return NextResponse.json({
+    signedUrl: `${SITE_URL}/api/upload/stream?bucket=bio&name=${encodeURIComponent(fileName)}&token=${token}`,
+    publicUrl: `${FILES_BASE_URL}/bio/${fileName}`,
+  });
 }
 
 // PATCH — sauvegarde bio_text et/ou bio_image_url
@@ -51,7 +59,7 @@ export async function PATCH(req: NextRequest) {
   const db = supabaseAdmin();
 
   const updates: { key: string; value: string }[] = [];
-  if (body.bio_text    !== undefined) updates.push({ key: "bio_text",      value: body.bio_text });
+  if (body.bio_text      !== undefined) updates.push({ key: "bio_text",      value: body.bio_text });
   if (body.bio_image_url !== undefined) updates.push({ key: "bio_image_url", value: body.bio_image_url });
 
   if (updates.length) {

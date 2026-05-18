@@ -11,7 +11,7 @@ import { join } from "path";
 
 const UPLOAD_SECRET   = process.env.UPLOAD_SECRET ?? "toxic-upload-secret-change-me";
 const UPLOAD_BASE     = process.env.UPLOAD_SERVER_PATH ?? "/var/www/toxic-files";
-const ALLOWED_BUCKETS = ["beats", "previews", "covers"];
+const ALLOWED_BUCKETS = ["beats", "previews", "covers", "banners", "bio"];
 
 // Timeout étendu pour les gros fichiers WAV/ZIP
 export const maxDuration = 120;
