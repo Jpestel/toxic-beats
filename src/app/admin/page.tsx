@@ -47,6 +47,8 @@ export default function AdminPage() {
   const [sendingFilesId, setSendingFilesId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [newRequestsBadge, setNewRequestsBadge] = useState(0);
+
   const [storageInfo, setStorageInfo] = useState<{
     totalBytes: number;
     beatBytes: number;
@@ -67,6 +69,23 @@ export default function AdminPage() {
     });
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Polling badge "Sur demande" toutes les 30s
+  useEffect(() => {
+    if (!user) return;
+    const fetchBadge = async () => {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) return;
+      const res = await fetch("/api/admin/beat-requests", { headers: { authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setNewRequestsBadge(data.filter((r: { status: string }) => r.status === "new").length);
+      }
+    };
+    fetchBadge();
+    const iv = setInterval(fetchBadge, 30000);
+    return () => clearInterval(iv);
+  }, [user]);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -538,13 +557,13 @@ export default function AdminPage() {
             { id: "credits"    as const, label: "Productions", icon: <Music2     size={14} />, badge: 0 },
             { id: "newsletter" as const, label: "Newsletter",  icon: <Mail       size={14} />, badge: 0 },
             { id: "blog"       as const, label: "Blog",        icon: <BookOpen   size={14} />, badge: 0 },
-            { id: "requests"   as const, label: "Sur demande", icon: <Mic2       size={14} />, badge: 0 },
+            { id: "requests"   as const, label: "Sur demande", icon: <Mic2       size={14} />, badge: newRequestsBadge },
             { id: "analytics"  as const, label: "Analytics",   icon: <BarChart2  size={14} />, badge: 0 },
             { id: "site"     as const, label: "Site",        icon: <Globe      size={14} />, badge: 0 },
           ].map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => { setTab(t.id); if (t.id === "requests") setNewRequestsBadge(0); }}
               className="flex items-center gap-1.5 px-3 py-3 text-xs font-mono tracking-widest uppercase transition-all border-b-2 -mb-px whitespace-nowrap"
               style={tab === t.id
                 ? { color: "#b400ff", borderColor: "#b400ff" }

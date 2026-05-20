@@ -43,6 +43,7 @@ export default function BeatRequestsManager() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<"all" | BeatRequest["status"]>("all");
+  const [newAlert, setNewAlert] = useState(0);
   const [replyOpen, setReplyOpen] = useState<string | null>(null);
   const [replySubject, setReplySubject] = useState<Record<string, string>>({});
   const [replyBody, setReplyBody] = useState<Record<string, string>>({});
@@ -63,7 +64,43 @@ export default function BeatRequestsManager() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    // Demander permission notifications navigateur
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, [load]);
+
+  // Auto-refresh toutes les 30s + détection nouvelles demandes
+  useEffect(() => {
+    const poll = async () => {
+      const token = await getToken();
+      const res = await fetch("/api/admin/beat-requests", { headers: { authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
+      setRequests(prev => {
+        const prevIds = new Set(prev.map(r => r.id));
+        const nouvelles = data.filter((r: BeatRequest) => !prevIds.has(r.id));
+        if (nouvelles.length > 0) {
+          setNewAlert(n => n + nouvelles.length);
+          // Notification navigateur si permission accordée
+          if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            new Notification("🎵 Nouvelle demande de beat", {
+              body: `${nouvelles[0].name} vient de soumettre une demande.`,
+              icon: "/favicon.ico",
+            });
+          }
+        }
+        const n: Record<string, string> = {};
+        data.forEach((r: BeatRequest) => { n[r.id] = r.notes ?? ""; });
+        setNotes(prev => ({ ...n, ...prev }));
+        return data;
+      });
+    };
+    const iv = setInterval(poll, 30000);
+    return () => clearInterval(iv);
+  }, []);
 
   async function updateStatus(id: string, status: BeatRequest["status"]) {
     setSavingId(id);
@@ -149,6 +186,23 @@ export default function BeatRequestsManager() {
           </span>
         )}
       </div>
+
+      {/* Toast nouvelle demande */}
+      {newAlert > 0 && (
+        <div className="flex items-center justify-between gap-3 mb-4 px-4 py-3 rounded-xl border"
+          style={{ background: "#b400ff18", borderColor: "#b400ff55" }}>
+          <div className="flex items-center gap-2">
+            <Zap size={16} className="text-[#b400ff] flex-shrink-0" />
+            <span className="text-sm font-bold text-white">
+              {newAlert} nouvelle{newAlert > 1 ? "s" : ""} demande{newAlert > 1 ? "s" : ""} reçue{newAlert > 1 ? "s" : ""} !
+            </span>
+          </div>
+          <button onClick={() => { setNewAlert(0); setFilter("new"); }}
+            className="text-xs font-mono text-[#b400ff] hover:underline whitespace-nowrap">
+            Voir →
+          </button>
+        </div>
+      )}
 
       {/* Filtres */}
       <div className="flex flex-wrap gap-2 mb-6">
