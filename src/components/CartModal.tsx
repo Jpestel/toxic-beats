@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Trash2, ShoppingCart, CheckCircle, Loader2, Copy, RotateCcw, Tag, Check, UserPlus, Eye, EyeOff } from "lucide-react";
+import { X, Trash2, ShoppingCart, CheckCircle, Loader2, Copy, RotateCcw, Tag, Check, UserPlus, Eye, EyeOff, CreditCard } from "lucide-react";
 import type { CartItem, LicenseType } from "@/types";
 
 type PaymentMethod = {
@@ -102,6 +102,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
   const [showSignupPwd, setShowSignupPwd]   = useState(false);
   const [signupStatus, setSignupStatus]     = useState<"idle" | "loading" | "success" | "error">("idle");
   const [signupError, setSignupError]       = useState("");
+  const [stripeEnabled, setStripeEnabled]   = useState(false);
 
   const handleSignup = async () => {
     if (!signupPassword || signupPassword.length < 6) {
@@ -133,6 +134,37 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
   const discount    = calcDiscount(promoResult, cart, rawTotal);
   const total       = Math.max(0, rawTotal - discount);
   const hasExclusive = cart.some((i) => i.type === "beat" && i.licenseType === "exclusive");
+  const formValid = !!(form.firstname.trim() && form.lastname.trim() && form.email.trim());
+
+  const handleStripe = async () => {
+    if (!formValid) return;
+    setStatus("loading");
+    setError("");
+    const promoCode = promoResult?.valid ? promoResult.code : undefined;
+    const buyerName = `${form.firstname} ${form.lastname}`.trim();
+    const items = cart.map(item => {
+      const itemRatio = rawTotal > 0 ? item.price / rawTotal : 0;
+      const itemDiscount = Math.round(discount * itemRatio * 100) / 100;
+      const finalAmount = Math.max(0, item.price - itemDiscount);
+      if (item.type === "kit") {
+        return { product_type: "kit", kit_id: item.kit.id, beat_title: item.kit.title, amount: finalAmount, discount_amount: itemDiscount };
+      }
+      return { product_type: "beat", beat_id: item.beat.id, beat_title: item.beat.title, license_type: item.licenseType, amount: finalAmount, discount_amount: itemDiscount };
+    });
+    try {
+      const res = await fetch("/api/checkout/stripe/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items, buyer_name: buyerName, buyer_email: form.email, promo_code: promoCode }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Erreur");
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      setStatus("error");
+      setError(err instanceof Error ? err.message : "Erreur lors du paiement.");
+    }
+  };
 
   const applyPromo = async () => {
     if (!promoInput.trim()) return;
@@ -154,7 +186,10 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
   useEffect(() => {
     fetch("/api/settings/payment")
       .then((r) => r.json())
-      .then((data) => setPaymentMethods((data.methods ?? []).filter((m: PaymentMethod) => m.active && m.value)));
+      .then((data) => {
+        setPaymentMethods((data.methods ?? []).filter((m: PaymentMethod) => m.active && m.value));
+        setStripeEnabled(data.stripe?.enabled === true);
+      });
 
     try {
       const raw = localStorage.getItem(LS_KEY);
@@ -673,9 +708,30 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
 
                     {error && <p className="text-red-400 text-xs">{error}</p>}
 
+                    {stripeEnabled && total > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleStripe}
+                        disabled={status === "loading" || !formValid}
+                        className="w-full h-12 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-3 disabled:opacity-60 transition-all hover:scale-[1.01]"
+                        style={{ background: "linear-gradient(135deg, #635bff, #4f46e5)", boxShadow: "0 0 20px rgba(99,91,255,0.35)" }}
+                      >
+                        {status === "loading" ? <Loader2 size={17} className="animate-spin" /> : <CreditCard size={17} />}
+                        <span>Payer par carte · {total}€</span>
+                      </button>
+                    )}
+
+                    {stripeEnabled && total > 0 && (
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-px bg-[#2a2a2a]" />
+                        <span className="text-xs text-neutral-600 font-mono">ou</span>
+                        <div className="flex-1 h-px bg-[#2a2a2a]" />
+                      </div>
+                    )}
+
                     <button
                       type="submit"
-                      disabled={status === "loading"}
+                      disabled={status === "loading" || !formValid}
                       className="w-full h-12 rounded-xl font-bold text-sm tracking-wider text-black flex items-center justify-center gap-2 disabled:opacity-60 transition-all hover:scale-[1.01]"
                       style={{ background: "linear-gradient(135deg, #b400ff, #9000cc)", boxShadow: "0 0 20px rgba(180,0,255,0.4)" }}
                     >

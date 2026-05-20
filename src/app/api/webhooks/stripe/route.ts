@@ -26,20 +26,35 @@ export async function POST(req: NextRequest) {
 
   if (event.type === "checkout.session.completed") {
     const session  = event.data.object as Stripe.Checkout.Session;
-    const orderId  = session.metadata?.order_id;
+    const orderId  = session.metadata?.order_id;   // achat unitaire (BuyModal)
+    const orderIds = session.metadata?.order_ids;  // panier (CartModal)
 
-    if (!orderId) {
-      console.error("[webhook/stripe] order_id manquant dans metadata");
+    if (!orderId && !orderIds) {
+      console.error("[webhook/stripe] order_id(s) manquant dans metadata");
       return NextResponse.json({ error: "order_id manquant" }, { status: 400 });
     }
 
-    const result = await confirmOrderAndSendEmail(orderId);
-    if ("error" in result) {
-      console.error("[webhook/stripe]", result.error);
-      return NextResponse.json({ error: result.error }, { status: 500 });
+    // Achat unitaire
+    if (orderId) {
+      const result = await confirmOrderAndSendEmail(orderId);
+      if ("error" in result) {
+        console.error("[webhook/stripe]", result.error);
+        return NextResponse.json({ error: result.error }, { status: 500 });
+      }
+      console.log("[webhook/stripe] Commande confirmée :", orderId, "→", result.downloadUrl);
     }
 
-    console.log("[webhook/stripe] Commande confirmée :", orderId, "→", result.downloadUrl);
+    // Panier multi-articles
+    if (orderIds) {
+      for (const id of orderIds.split(",")) {
+        const result = await confirmOrderAndSendEmail(id.trim());
+        if ("error" in result) {
+          console.error("[webhook/stripe] Erreur confirmation", id.trim(), result.error);
+        } else {
+          console.log("[webhook/stripe] Commande confirmée :", id.trim(), "→", result.downloadUrl);
+        }
+      }
+    }
   }
 
   return NextResponse.json({ received: true });
