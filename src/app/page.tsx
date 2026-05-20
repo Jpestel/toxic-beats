@@ -123,6 +123,10 @@ export default function HomePage() {
   const [coverLibrary, setCoverLibrary] = useState<string[]>([]);
   const [credits, setCredits] = useState<Credit[]>([]);
   const [showBackTop, setShowBackTop] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
+  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "success" | "error" | "already">("idle");
+  const [newsletterError, setNewsletterError] = useState("");
   const bannerImgRef = useRef<HTMLImageElement>(null);
 
   const handleScroll = useCallback(() => {
@@ -717,6 +721,93 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ===== NEWSLETTER ===== */}
+      <section id="newsletter" className="py-24 px-4 border-t border-[#1a1a1a]">
+        <div className="max-w-xl mx-auto text-center">
+          <p className="text-xs font-mono tracking-[0.4em] uppercase mb-3" style={{ color: theme.color_accent }}>◆ NEWSLETTER ◆</p>
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-3">RESTE DANS LA BOUCLE</h2>
+          <p className="text-neutral-500 text-sm mb-8">
+            Nouveaux beats, kits exclusifs et actus en avant-première — directement dans ta boîte mail.
+          </p>
+
+          {newsletterStatus === "success" ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="text-4xl">📧</div>
+              <p className="text-white font-bold">Vérifie ta boîte mail !</p>
+              <p className="text-neutral-500 text-sm">Un email de confirmation t&apos;a été envoyé. Clique sur le lien pour valider ton inscription.</p>
+            </div>
+          ) : newsletterStatus === "already" ? (
+            <div className="flex flex-col items-center gap-4">
+              <div className="text-4xl">✅</div>
+              <p className="text-white font-bold">Tu es déjà inscrit(e) !</p>
+              <p className="text-neutral-500 text-sm">Cette adresse email est déjà dans notre liste.</p>
+            </div>
+          ) : (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setNewsletterLoading(true);
+                setNewsletterError("");
+                try {
+                  const res = await fetch("/api/newsletter/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email: newsletterEmail }),
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setNewsletterStatus("success");
+                  } else if (data.code === "already_confirmed") {
+                    setNewsletterStatus("already");
+                  } else {
+                    setNewsletterError(data.error ?? "Une erreur est survenue.");
+                    setNewsletterStatus("error");
+                  }
+                } catch {
+                  setNewsletterError("Impossible de contacter le serveur.");
+                  setNewsletterStatus("error");
+                } finally {
+                  setNewsletterLoading(false);
+                }
+              }}
+              className="flex flex-col sm:flex-row gap-3"
+            >
+              <input
+                type="email"
+                required
+                value={newsletterEmail}
+                onChange={e => setNewsletterEmail(e.target.value)}
+                placeholder="ton@email.com"
+                className="flex-1 bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#b400ff] transition-colors placeholder-neutral-600"
+              />
+              <button
+                type="submit"
+                disabled={newsletterLoading}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 disabled:opacity-60 whitespace-nowrap"
+                style={{ background: `linear-gradient(135deg, ${theme.color_accent}, ${theme.color_accent}bb)`, boxShadow: `0 0 20px ${theme.color_accent}44` }}
+              >
+                {newsletterLoading ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <>
+                    <Mail size={15} />
+                    S&apos;inscrire
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {newsletterStatus === "error" && (
+            <p className="mt-3 text-red-400 text-sm">{newsletterError}</p>
+          )}
+
+          <p className="text-neutral-700 text-xs mt-5 font-mono">
+            Pas de spam · Désinscription en un clic · Double opt-in
+          </p>
+        </div>
+      </section>
 
       {/* ===== FOOTER ===== */}
       <footer className="border-t border-[#1a1a1a] py-8 px-4 text-center space-y-2">

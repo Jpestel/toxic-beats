@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2 } from "lucide-react";
+import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Order } from "@/types";
 import type { User } from "@supabase/supabase-js";
@@ -18,11 +18,12 @@ import ThemeManager from "@/components/admin/ThemeManager";
 import Pagination from "@/components/admin/Pagination";
 import PromoManager from "@/components/admin/PromoManager";
 import CreditsManager from "@/components/admin/CreditsManager";
+import NewsletterManager from "@/components/admin/NewsletterManager";
 
 const ORDER_PAGE_SIZE = 10;
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"orders" | "beats" | "kits" | "bio" | "socials" | "payment" | "site" | "promos" | "credits" | "analytics">("orders");
+  const [tab, setTab] = useState<"orders" | "beats" | "kits" | "bio" | "socials" | "payment" | "site" | "promos" | "credits" | "analytics" | "newsletter">("orders");
   const [orderSub, setOrderSub] = useState<"pending" | "paid" | "cancelled" | "deleted" | "archived">("pending");
   const [pendingPage, setPendingPage] = useState(1);
   const [paidPage, setPaidPage] = useState(1);
@@ -532,8 +533,9 @@ export default function AdminPage() {
             { id: "socials" as const, label: "Réseaux",  icon: <Share2 size={14} />,       badge: 0 },
             { id: "payment" as const, label: "Paiement", icon: <CreditCard size={14} />,   badge: 0 },
             { id: "promos"   as const, label: "Promos",      icon: <Tag    size={14} />,        badge: 0 },
-            { id: "credits"   as const, label: "Productions", icon: <Music2     size={14} />, badge: 0 },
-            { id: "analytics" as const, label: "Analytics",   icon: <BarChart2  size={14} />, badge: 0 },
+            { id: "credits"    as const, label: "Productions", icon: <Music2     size={14} />, badge: 0 },
+            { id: "newsletter" as const, label: "Newsletter",  icon: <Mail       size={14} />, badge: 0 },
+            { id: "analytics"  as const, label: "Analytics",   icon: <BarChart2  size={14} />, badge: 0 },
             { id: "site"     as const, label: "Site",        icon: <Globe      size={14} />, badge: 0 },
           ].map((t) => (
             <button
@@ -592,8 +594,9 @@ export default function AdminPage() {
         {tab === "bio"       && <BioManager />}
         {tab === "socials"   && <SocialManager />}
         {tab === "payment"   && <PaymentManager />}
-        {tab === "promos"    && <PromoManager />}
-        {tab === "credits"   && <CreditsManager />}
+        {tab === "promos"     && <PromoManager />}
+        {tab === "credits"    && <CreditsManager />}
+        {tab === "newsletter" && <NewsletterManager />}
         {tab === "site" && (
           <>
             <SiteManager />

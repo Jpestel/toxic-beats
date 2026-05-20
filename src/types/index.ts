@@ -58,6 +58,23 @@ export type KitCartItem = {
 
 export type CartItem = BeatCartItem | KitCartItem;
 
+export type NewsletterSubscriber = {
+  id: string;
+  email: string;
+  status: "pending" | "confirmed" | "unsubscribed";
+  subscribed_at: string;
+  confirmed_at: string | null;
+  unsubscribed_at: string | null;
+};
+
+export type NewsletterCampaign = {
+  id: string;
+  subject: string;
+  body_html: string;
+  recipient_count: number;
+  sent_at: string;
+};
+
 export type Order = {
   id: string;
   beat_id?: string | null;
