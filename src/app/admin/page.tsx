@@ -770,7 +770,7 @@ export default function AdminPage() {
                 <div className="space-y-6">
                   {groups.map(([key, monthOrders]) => {
                     const label = formatMonthLabel(key);
-                    const monthTotal = monthOrders.reduce((s, o) => s + o.amount, 0);
+                    const monthTotal = monthOrders.reduce((s, o) => s + Number(o.amount), 0);
                     return (
                       <div key={key} className="rounded-2xl overflow-hidden" style={{ border: "1px solid #1e1e1e" }}>
                         {/* En-tête du mois */}
@@ -1118,7 +1118,7 @@ function OrderRow({
                   {order.license_type === "exclusive" ? "EXCLUSIF" : order.license_type.toUpperCase()}
                 </span>
               )}
-              <span className="text-[#b400ff]">{order.amount}€</span>
+              <span className="text-[#b400ff]">{Number(order.amount).toFixed(2)}€</span>
             </p>
             {order.preview_url && (
               <button
@@ -1367,7 +1367,7 @@ function ArchivedMonthBlock({
   const label = new Date(parseInt(y), parseInt(m) - 1, 1)
     .toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
     .replace(/^./, (c) => c.toUpperCase());
-  const total = orders.reduce((s, o) => s + o.amount, 0);
+  const total = orders.reduce((s, o) => s + Number(o.amount), 0);
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid #1a1a1a" }}>
