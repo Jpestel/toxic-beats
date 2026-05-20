@@ -421,6 +421,12 @@ export default function AdminPage() {
             </h1>
             <p className="text-[#b400ff] font-mono text-xs tracking-widest mt-1">ADMIN</p>
           </div>
+          <a
+            href="/"
+            className="flex items-center justify-center gap-2 text-xs text-neutral-500 hover:text-white transition-colors mb-6 font-mono tracking-widest"
+          >
+            ← Retour au site
+          </a>
           <form
             onSubmit={handleLogin}
             className="bg-[#111] border border-[#2a2a2a] rounded-2xl p-6"
