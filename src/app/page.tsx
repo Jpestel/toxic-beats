@@ -138,8 +138,48 @@ export default function HomePage() {
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "success" | "error" | "already">("idle");
   const [newsletterError, setNewsletterError] = useState("");
   const bannerImgRef = useRef<HTMLImageElement>(null);
-  const turnstileContainerRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetId = useRef<string | null>(null);
+
+  // Callback ref : se déclenche quand le div est réellement dans le DOM
+  const turnstileRef = useCallback((node: HTMLDivElement | null) => {
+    if (!node) {
+      // Cleanup à la destruction
+      if (turnstileWidgetId.current !== null && (window as unknown as Record<string, { remove: (id: string) => void }>).turnstile) {
+        (window as unknown as Record<string, { remove: (id: string) => void }>).turnstile.remove(turnstileWidgetId.current!);
+        turnstileWidgetId.current = null;
+      }
+      return;
+    }
+    const sitekey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    if (!sitekey) return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = window as any;
+
+    const doRender = () => {
+      if (turnstileWidgetId.current !== null) return;
+      turnstileWidgetId.current = win.turnstile.render(node, {
+        sitekey,
+        theme: "light",
+        callback: (token: string) => setCaptchaToken(token),
+        "expired-callback": () => setCaptchaToken(""),
+        "error-callback": () => setCaptchaToken(""),
+      });
+    };
+
+    if (win.turnstile) {
+      doRender();
+    } else if (!document.getElementById("cf-turnstile-script")) {
+      const script = document.createElement("script");
+      script.id = "cf-turnstile-script";
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.onload = doRender;
+      document.head.appendChild(script);
+    } else {
+      const iv = setInterval(() => { if (win.turnstile) { clearInterval(iv); doRender(); } }, 100);
+    }
+  }, []);
 
   const handleScroll = useCallback(() => {
     setShowBackTop(window.scrollY > 300);
@@ -153,54 +193,6 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
-  // Turnstile CAPTCHA — rendu explicite
-  useEffect(() => {
-    const sitekey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-    if (!sitekey) return;
-
-    const renderWidget = () => {
-      if (!turnstileContainerRef.current) return;
-      // Éviter le double-rendu
-      if (turnstileWidgetId.current !== null) return;
-      turnstileWidgetId.current = (window as unknown as Record<string, { render: (el: HTMLElement, opts: object) => string }>).turnstile.render(
-        turnstileContainerRef.current,
-        {
-          sitekey,
-          theme: "light",
-          callback: (token: string) => setCaptchaToken(token),
-          "expired-callback": () => setCaptchaToken(""),
-          "error-callback": () => setCaptchaToken(""),
-        }
-      );
-    };
-
-    if ((window as unknown as Record<string, unknown>).turnstile) {
-      renderWidget();
-    } else if (!document.getElementById("cf-turnstile-script")) {
-      const script = document.createElement("script");
-      script.id = "cf-turnstile-script";
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.async = true;
-      script.onload = renderWidget;
-      document.head.appendChild(script);
-    } else {
-      // Script déjà injecté mais pas encore chargé — attendre
-      const interval = setInterval(() => {
-        if ((window as unknown as Record<string, unknown>).turnstile) {
-          clearInterval(interval);
-          renderWidget();
-        }
-      }, 100);
-      return () => clearInterval(interval);
-    }
-
-    return () => {
-      if (turnstileWidgetId.current !== null && (window as unknown as Record<string, { remove: (id: string) => void }>).turnstile) {
-        (window as unknown as Record<string, { remove: (id: string) => void }>).turnstile.remove(turnstileWidgetId.current);
-        turnstileWidgetId.current = null;
-      }
-    };
-  }, []);
 
   // Injecter les CSS variables du thème
   useEffect(() => {
@@ -833,10 +825,10 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* Turnstile CAPTCHA — rendu explicite */}
+                {/* Turnstile CAPTCHA — callback ref, se déclenche quand le div est dans le DOM */}
                 {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
                   <div className="flex justify-center py-2">
-                    <div ref={turnstileContainerRef} />
+                    <div ref={turnstileRef} />
                   </div>
                 )}
 
