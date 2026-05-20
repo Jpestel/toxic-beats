@@ -1,8 +1,11 @@
 "use client";
 
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
+
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Save, Loader2, CheckCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 type PaymentMethod = {
   id: string;
@@ -57,12 +60,12 @@ export default function PaymentManager() {
 
   const save = async () => {
     setSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
+    
     await fetch("/api/settings/payment", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${session?.access_token}`,
+        "Authorization": `Bearer ${getToken()}`,
       },
       body: JSON.stringify({ methods }),
     });

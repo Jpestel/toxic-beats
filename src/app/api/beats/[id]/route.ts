@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthedUser, isAdmin } from "@/lib/auth";
+import pool, { queryOne } from "@/lib/db";
+import { unlink } from "fs/promises";
+import { join } from "path";
 
-async function getAuthedUser(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const db = supabaseAdmin();
-  const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user;
-}
+const UPLOAD_BASE = process.env.UPLOAD_SERVER_PATH ?? "/var/www/toxic-files";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -21,10 +16,70 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const db = supabaseAdmin();
 
-  const { error } = await db.from("beats").update(body).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Construction dynamique de la requête UPDATE
+  const allowed = [
+    "title", "genre", "bpm", "price", "preview_url", "full_file_path",
+    "description", "tags", "image_url", "status", "visible",
+    "wav_extra", "exclusive_price", "wav_file_path", "stems_zip_path",
+    "key", "duration",
+  ];
+
+  const sets: string[] = [];
+  const values: unknown[] = [];
+
+  for (const [k, v] of Object.entries(body)) {
+    if (!allowed.includes(k)) continue;
+    sets.push("`" + k + "` = ?");
+    values.push(Array.isArray(v) ? JSON.stringify(v) : v);
+  }
+
+  if (sets.length === 0) {
+    return NextResponse.json({ error: "Rien à mettre à jour" }, { status: 400 });
+  }
+
+  values.push(id);
+  await pool.execute(`UPDATE beats SET ${sets.join(", ")} WHERE id = ?`, values as (string | number | boolean | null)[]);
+
+  return NextResponse.json({ success: true });
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+
+  const user = await getAuthedUser(req);
+  if (!user || !isAdmin(user)) {
+    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  const beat = await queryOne<{
+    full_file_path: string | null;
+    wav_file_path: string | null;
+    stems_zip_path: string | null;
+    preview_url: string | null;
+  }>(
+    "SELECT full_file_path, wav_file_path, stems_zip_path, preview_url FROM beats WHERE id = ?",
+    [id],
+  );
+
+  await pool.execute("DELETE FROM beats WHERE id = ?", [id]);
+
+  if (beat) {
+    const tryDelete = async (sub: string, filename: string | null) => {
+      if (!filename) return;
+      try { await unlink(join(UPLOAD_BASE, sub, filename)); } catch {}
+    };
+    await tryDelete("beats", beat.full_file_path);
+    await tryDelete("beats", beat.wav_file_path);
+    await tryDelete("beats", beat.stems_zip_path);
+    if (beat.preview_url) {
+      const previewFile = beat.preview_url.split("/previews/").pop();
+      if (previewFile) await tryDelete("previews", previewFile);
+    }
+  }
 
   return NextResponse.json({ success: true });
 }

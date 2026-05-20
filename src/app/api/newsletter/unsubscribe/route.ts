@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const db = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { queryOne, execute } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
@@ -12,24 +7,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/newsletter/unsubscribed?error=invalid", req.url));
   }
 
-  const { data, error } = await db
-    .from("newsletter_subscribers")
-    .select("id, status")
-    .eq("unsubscribe_token", token)
-    .single();
+  const sub = await queryOne<{ id: string; status: string }>(
+    "SELECT id, status FROM newsletter_subscribers WHERE unsubscribe_token = ? LIMIT 1",
+    [token],
+  );
 
-  if (error || !data) {
+  if (!sub) {
     return NextResponse.redirect(new URL("/newsletter/unsubscribed?error=invalid", req.url));
   }
 
-  if (data.status === "unsubscribed") {
+  if (sub.status === "unsubscribed") {
     return NextResponse.redirect(new URL("/newsletter/unsubscribed?already=1", req.url));
   }
 
-  await db.from("newsletter_subscribers").update({
-    status: "unsubscribed",
-    unsubscribed_at: new Date().toISOString(),
-  }).eq("id", data.id);
+  await execute(
+    "UPDATE newsletter_subscribers SET status='unsubscribed', unsubscribed_at=NOW() WHERE id=?",
+    [sub.id],
+  );
 
   return NextResponse.redirect(new URL("/newsletter/unsubscribed?success=1", req.url));
 }

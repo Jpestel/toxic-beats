@@ -1,14 +1,44 @@
-import { supabaseAdmin } from "@/lib/supabase";
+import { queryOne } from "@/lib/db";
 import { Download, Music, CheckCircle, AlertCircle, Package } from "lucide-react";
 
+type FlatOrderRow = {
+  id: string; status: string; product_type: string; license_type: string | null;
+  beat_title: string; token_expires_at: string;
+  b_title: string | null; genre: string | null; b_img: string | null;
+  full_file_path: string | null; wav_file_path: string | null; stems_zip_path: string | null;
+  k_title: string | null; k_img: string | null;
+};
+
 async function getOrder(token: string) {
-  const db = supabaseAdmin();
-  const { data } = await db
-    .from("orders")
-    .select("*, beats(title, genre, image_url, full_file_path, wav_file_path, stems_zip_path), kits(title, image_url)")
-    .eq("download_token", token)
-    .single();
-  return data;
+  const row = await queryOne<FlatOrderRow>(
+    `SELECT o.id, o.status, o.product_type, o.license_type, o.beat_title, o.token_expires_at,
+            b.title AS b_title, b.genre, b.image_url AS b_img,
+            b.full_file_path, b.wav_file_path, b.stems_zip_path,
+            k.title AS k_title, k.image_url AS k_img
+     FROM orders o
+     LEFT JOIN beats b ON b.id = o.beat_id
+     LEFT JOIN kits  k ON k.id = o.kit_id
+     WHERE o.download_token = ? LIMIT 1`,
+    [token],
+  );
+  if (!row) return null;
+  return {
+    id: row.id, status: row.status, product_type: row.product_type,
+    license_type: row.license_type, beat_title: row.beat_title,
+    token_expires_at: row.token_expires_at,
+    beats: row.product_type === "beat" ? {
+      title: row.b_title ?? row.beat_title,
+      genre: row.genre ?? "",
+      image_url: row.b_img,
+      full_file_path: row.full_file_path,
+      wav_file_path: row.wav_file_path,
+      stems_zip_path: row.stems_zip_path,
+    } : null,
+    kits: row.product_type === "kit" ? {
+      title: row.k_title ?? row.beat_title,
+      image_url: row.k_img,
+    } : null,
+  };
 }
 
 const LICENSE_LABELS: Record<string, string> = {

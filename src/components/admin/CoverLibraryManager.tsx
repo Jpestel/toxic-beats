@@ -1,8 +1,11 @@
 "use client";
 
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
+
 import { useState, useEffect, useRef } from "react";
 import { Upload, X, ImageIcon, Loader2, Plus, Tag, FolderOpen, Pencil, Check } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 const MAX_COVERS = 100;
 
@@ -70,10 +73,10 @@ export default function CoverLibraryManager() {
 
   const save = async (newCovers: CoverEntry[], newCategories: string[]) => {
     setSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
+    
     await fetch("/api/settings/covers", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
       body: JSON.stringify({ covers: newCovers, categories: newCategories }),
     });
     setSaving(false);
@@ -89,12 +92,11 @@ export default function CoverLibraryManager() {
     setUploading(true);
     try {
       const file = await optimizeCoverImage(rawFile).catch(() => rawFile);
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = getToken();
       const coverName = `library-${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
       const presignRes = await fetch("/api/upload/presign", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
         body: JSON.stringify({ coverName }),
       });
       const presign = await presignRes.json();

@@ -1,41 +1,33 @@
-/**
- * GET /api/account/orders — retourne les commandes du client connecté
- */
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthedUser } from "@/lib/auth";
+import { queryAll } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-    }
+    const user = await getAuthedUser(req);
+    if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
-    const token = authHeader.slice(7);
-    const db = supabaseAdmin();
+    const orders = await queryAll(
+      `SELECT
+         o.id, o.beat_title, o.product_type, o.license_type, o.amount, o.discount_amount,
+         o.status, o.download_token, o.token_expires_at, o.token_used, o.created_at,
+         b.title AS beat_title_rel, b.image_url AS beat_image_url,
+         k.title AS kit_title_rel,  k.image_url AS kit_image_url
+       FROM orders o
+       LEFT JOIN beats b ON b.id = o.beat_id
+       LEFT JOIN kits  k ON k.id = o.kit_id
+       WHERE o.buyer_email = ? AND o.status IN ('paid','pending')
+       ORDER BY o.created_at DESC`,
+      [user.email],
+    );
 
-    // Vérifier le token et récupérer l'utilisateur
-    const { data: { user }, error: authError } = await db.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: "Session invalide" }, { status: 401 });
-    }
+    const mapped = orders.map((o: Record<string, unknown>) => ({
+      ...o,
+      beats: o.beat_title_rel ? { title: o.beat_title_rel, image_url: o.beat_image_url } : null,
+      kits:  o.kit_title_rel  ? { title: o.kit_title_rel,  image_url: o.kit_image_url  } : null,
+    }));
 
-    // Récupérer les commandes correspondant à l'email du client
-    const { data: orders, error } = await db
-      .from("orders")
-      .select(`
-        id, beat_title, product_type, license_type, amount, discount_amount,
-        status, download_token, token_expires_at, token_used, created_at,
-        beats(title, image_url),
-        kits(title, image_url)
-      `)
-      .eq("buyer_email", user.email!)
-      .in("status", ["paid", "pending"])
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    return NextResponse.json({ orders: orders ?? [] });
+    return NextResponse.json({ orders: mapped });
   } catch {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }

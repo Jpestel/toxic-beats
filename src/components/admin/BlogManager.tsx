@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import { Plus, Edit2, Trash2, Eye, EyeOff, Loader2, ArrowLeft, Save, Image, Bold, Italic, Link2, Type, ExternalLink } from "lucide-react";
 
 type Post = {
@@ -30,9 +29,8 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 }
 
-async function getToken() {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? "";
+function getToken() {
+  return typeof window !== "undefined" ? (localStorage.getItem("toxic_auth_token") ?? "") : "";
 }
 
 // ——— Toolbar button ———
@@ -76,7 +74,7 @@ export default function BlogManager() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const token = await getToken();
+    const token = getToken();
     const res = await fetch("/api/admin/blog", { headers: { authorization: `Bearer ${token}` } });
     const data = await res.json();
     setPosts(Array.isArray(data) ? data : []);
@@ -112,7 +110,7 @@ export default function BlogManager() {
   async function save() {
     if (!title.trim() || !slug.trim()) { setError("Titre et slug requis."); return; }
     setSaving(true); setError("");
-    const token = await getToken();
+    const token = getToken();
     const body = {
       title: title.trim(),
       slug: slug.trim(),
@@ -133,7 +131,7 @@ export default function BlogManager() {
   }
 
   async function toggleVisible(p: Post) {
-    const token = await getToken();
+    const token = getToken();
     await fetch(`/api/admin/blog/${p.id}`, {
       method: "PUT",
       headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -145,7 +143,7 @@ export default function BlogManager() {
   async function deletePost(id: string) {
     if (!confirm("Supprimer cet article ?")) return;
     setDeleting(id);
-    const token = await getToken();
+    const token = getToken();
     await fetch(`/api/admin/blog/${id}`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
     setPosts(prev => prev.filter(x => x.id !== id));
     setDeleting(null);
@@ -154,7 +152,7 @@ export default function BlogManager() {
   // Cover image upload
   async function uploadCover(file: File) {
     setUploadingCover(true);
-    const token = await getToken();
+    const token = getToken();
     const form = new FormData(); form.append("file", file);
     const res = await fetch("/api/admin/newsletter/upload-image", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
     const data = await res.json();
@@ -165,7 +163,7 @@ export default function BlogManager() {
   // Inline image upload (into editor)
   async function uploadInlineImage(file: File) {
     setUploadingImg(true);
-    const token = await getToken();
+    const token = getToken();
     const form = new FormData(); form.append("file", file);
     const res = await fetch("/api/admin/newsletter/upload-image", { method: "POST", headers: { authorization: `Bearer ${token}` }, body: form });
     const data = await res.json();

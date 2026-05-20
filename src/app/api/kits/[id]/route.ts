@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthedUser } from "@/lib/auth";
+import pool, { queryOne } from "@/lib/db";
+import { unlink } from "fs/promises";
+import { join } from "path";
 
-async function getAuthedUser(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const db = supabaseAdmin();
-  const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user;
-}
+const UPLOAD_BASE = process.env.UPLOAD_SERVER_PATH ?? "/var/www/toxic-files";
 
-// PATCH admin — modifie un kit
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const user = await getAuthedUser(req);
@@ -22,49 +16,54 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const db = supabaseAdmin();
+    const allowed = ["title", "description", "price", "preview_url", "preview_path", "zip_path", "image_url", "status"];
 
-    const { data, error } = await db
-      .from("kits")
-      .update(body)
-      .eq("id", id)
-      .select()
-      .single();
+    const sets: string[] = [];
+    const values: unknown[] = [];
 
-    if (error) throw error;
-    if (!data) return NextResponse.json({ error: "Kit introuvable" }, { status: 404 });
+    for (const [k, v] of Object.entries(body)) {
+      if (!allowed.includes(k)) continue;
+      sets.push(`\`${k}\` = ?`);
+      values.push(v);
+    }
 
-    return NextResponse.json(data);
+    if (sets.length === 0) return NextResponse.json({ error: "Rien à mettre à jour" }, { status: 400 });
+
+    values.push(id);
+    await pool.execute(`UPDATE kits SET ${sets.join(", ")} WHERE id = ?`, values as (string | number | boolean | null)[]);
+
+    const kit = await queryOne("SELECT * FROM kits WHERE id = ? LIMIT 1", [id]);
+    if (!kit) return NextResponse.json({ error: "Kit introuvable" }, { status: 404 });
+
+    return NextResponse.json(kit);
   } catch (err) {
     console.error("[kits PATCH]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
 
-// DELETE admin — supprime un kit
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   try {
-    const db = supabaseAdmin();
+    const kit = await queryOne<{ preview_path: string | null; zip_path: string | null }>(
+      "SELECT preview_path, zip_path FROM kits WHERE id = ? LIMIT 1",
+      [id],
+    );
 
-    // Récupérer les chemins pour supprimer les fichiers storage
-    const { data: kit } = await db.from("kits").select("preview_path, zip_path, image_url").eq("id", id).single();
+    await pool.execute("DELETE FROM kits WHERE id = ?", [id]);
 
-    const { error } = await db.from("kits").delete().eq("id", id);
-    if (error) throw error;
-
-    // Nettoyage storage (non bloquant)
+    // Nettoyage fichiers locaux (non bloquant)
     if (kit?.preview_path) {
-      await db.storage.from("previews").remove([kit.preview_path]);
+      unlink(join(UPLOAD_BASE, "previews", kit.preview_path)).catch(() => {});
     }
     if (kit?.zip_path) {
-      await db.storage.from("beats").remove([kit.zip_path]);
+      unlink(join(UPLOAD_BASE, "beats", kit.zip_path)).catch(() => {});
     }
 
     return NextResponse.json({ success: true });

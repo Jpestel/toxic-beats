@@ -1,8 +1,11 @@
 "use client";
 
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
+
 import { useState, useEffect, useRef } from "react";
 import { Plus, Pencil, Trash2, Eye, EyeOff, Upload, X, Loader2, GripVertical, ChevronUp, ChevronDown, Music2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import { PLATFORMS, PlatformIcon, type PlatformId, type PlatformLink } from "@/lib/platforms";
 
 export type Credit = {
@@ -72,10 +75,10 @@ export default function CreditsManager() {
 
   const save = async (newCredits: Credit[]) => {
     setSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
+    
     await fetch("/api/settings/credits", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
       body: JSON.stringify({ credits: newCredits }),
     });
     setSaving(false);
@@ -86,11 +89,11 @@ export default function CreditsManager() {
     setUploadingCover(true);
     try {
       const file = await optimizeImage(rawFile).catch(() => rawFile);
-      const { data: { session } } = await supabase.auth.getSession();
+      
       const coverName = `credits/credit-${Date.now()}.webp`;
       const res = await fetch("/api/upload/presign", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
         body: JSON.stringify({ coverName }),
       });
       const presign = await res.json();

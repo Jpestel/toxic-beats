@@ -4,8 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, Music, Upload, Loader2, CheckCircle, X, Scissors, BadgeCheck, Pencil, FileCheck, RotateCcw, RefreshCw, Eye, EyeOff, FileAudio, FileArchive, ImageIcon } from "lucide-react";
 import CoverPicker, { type CoverPickerResult } from "./CoverPicker";
 import Pagination from "./Pagination";
-import { supabase } from "@/lib/supabase";
 import { trimAudioToWav } from "@/lib/trimAudio";
+
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("toxic_auth_token");
+}
 import type { Beat, GenreConfig } from "@/types";
 
 const DEFAULT_GENRES: GenreConfig[] = [
@@ -34,11 +38,11 @@ export default function BeatsManager() {
 
   const fetchBeats = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("beats")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setBeats(data ?? []);
+    const res = await fetch("/api/beats", {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    const data = res.ok ? await res.json() : [];
+    setBeats(data);
     setLoading(false);
   };
 
@@ -47,22 +51,20 @@ export default function BeatsManager() {
 
   useEffect(() => { fetchBeats(); }, []);
 
-  const deleteBeat = async (id: string, fullPath: string, previewUrl: string) => {
+  const deleteBeat = async (id: string) => {
     if (!confirm("Supprimer ce beat définitivement ?")) return;
-    await supabase.from("beats").delete().eq("id", id);
-    await supabase.storage.from("beats").remove([fullPath]);
-    const previewPath = previewUrl.split("/previews/")[1];
-    if (previewPath) await supabase.storage.from("previews").remove([previewPath]);
+    await fetch(`/api/beats/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
     await fetchBeats();
   };
 
   const toggleBeatVisible = async (beat: Beat) => {
     const newVisible = beat.visible === false ? true : false;
-    const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token;
     await fetch(`/api/beats/${beat.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
       body: JSON.stringify({ visible: newVisible }),
     });
     setBeats(prev => prev.map(b => b.id === beat.id ? { ...b, visible: newVisible } : b));
@@ -125,7 +127,7 @@ export default function BeatsManager() {
                 beat={beat}
                 genreColors={Object.fromEntries(genres.map(g => [g.name, g.color]))}
                 onEdit={() => handleEdit(beat)}
-                onDelete={() => deleteBeat(beat.id, beat.full_file_path, beat.preview_url)}
+                onDelete={() => deleteBeat(beat.id)}
                 onToggleVisible={() => toggleBeatVisible(beat)}
                 editing={editingBeat?.id === beat.id}
               />
@@ -147,7 +149,7 @@ export default function BeatsManager() {
                 beat={beat}
                 genreColors={Object.fromEntries(genres.map(g => [g.name, g.color]))}
                 onEdit={() => handleEdit(beat)}
-                onDelete={() => deleteBeat(beat.id, beat.full_file_path, beat.preview_url)}
+                onDelete={() => deleteBeat(beat.id)}
                 onToggleVisible={() => toggleBeatVisible(beat)}
                 editing={editingBeat?.id === beat.id}
                 sold
@@ -789,8 +791,7 @@ function EditBeatForm({ beat, genres, onSaved, onCancel }: {
       }
       // ZIP optionnel pour l'exclusif — peut être ajouté et renvoyé à la demande
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = getToken();
 
       const update: Record<string, unknown> = {
         title: form.title.toUpperCase(),
@@ -825,23 +826,10 @@ function EditBeatForm({ beat, genres, onSaved, onCancel }: {
         });
         if (!uploadRes.ok) throw new Error(`Cover : ${uploadRes.statusText}`);
         update.image_url = coverPresign.coverPublicUrl;
-        // Supprimer l'ancienne cover propre (pas les images de bibliothèque)
-        if (beat.image_url) {
-          const oldPath = beat.image_url.split("/covers/")[1];
-          if (oldPath && !oldPath.startsWith("library-")) await supabase.storage.from("covers").remove([oldPath]);
-        }
       } else if (coverPicker?.type === "url" && coverPicker.url !== beat.image_url) {
-        // URL différente (bibliothèque ou changement)
         update.image_url = coverPicker.url;
-        if (beat.image_url) {
-          const oldPath = beat.image_url.split("/covers/")[1];
-          if (oldPath && !oldPath.startsWith("library-")) await supabase.storage.from("covers").remove([oldPath]);
-        }
       } else if (coverPicker === null && beat.image_url) {
-        // Suppression de la cover
         update.image_url = null;
-        const oldPath = beat.image_url.split("/covers/")[1];
-        if (oldPath && !oldPath.startsWith("library-")) await supabase.storage.from("covers").remove([oldPath]);
       }
       void isUrlFromLibrary; // unused helper suppressed
 
@@ -879,11 +867,6 @@ function EditBeatForm({ beat, genres, onSaved, onCancel }: {
         });
         if (!fullUpload.ok) throw new Error(`Fichier MP3 : ${fullUpload.statusText}`);
 
-        // Supprimer les anciens fichiers
-        await supabase.storage.from("beats").remove([beat.full_file_path]);
-        const oldPreviewPath = beat.preview_url.split("/previews/")[1];
-        if (oldPreviewPath) await supabase.storage.from("previews").remove([oldPreviewPath]);
-
         update.preview_url = presign.previewPublicUrl;
         update.full_file_path = fullName;
       }
@@ -907,15 +890,8 @@ function EditBeatForm({ beat, genres, onSaved, onCancel }: {
         });
         if (!wavUpload.ok) throw new Error(`Fichier WAV : ${wavUpload.statusText}`);
 
-        // Supprimer l'ancien WAV si existant
-        if (beat.wav_file_path) {
-          await supabase.storage.from("beats").remove([beat.wav_file_path]);
-        }
         update.wav_file_path = wavName;
       } else if (removeWav) {
-        if (beat.wav_file_path) {
-          await supabase.storage.from("beats").remove([beat.wav_file_path]);
-        }
         update.wav_file_path = null;
       }
 
@@ -938,14 +914,8 @@ function EditBeatForm({ beat, genres, onSaved, onCancel }: {
         });
         if (!zipUpload.ok) throw new Error(`ZIP pistes : ${zipUpload.statusText}`);
 
-        if (beat.stems_zip_path) {
-          await supabase.storage.from("beats").remove([beat.stems_zip_path]);
-        }
         update.stems_zip_path = zipName;
       } else if (removeZip) {
-        if (beat.stems_zip_path) {
-          await supabase.storage.from("beats").remove([beat.stems_zip_path]);
-        }
         update.stems_zip_path = null;
       }
 
@@ -1239,8 +1209,7 @@ function AddBeatForm({ genres, onAdded }: { genres: GenreConfig[]; onAdded: () =
     setError("");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = getToken();
       const baseName = `${Date.now()}-${fullFile.name.replace(/\s+/g, "-")}`;
       const previewName = baseName.replace(/\.[^.]+$/, "") + "-preview.wav";
       const fullName = "full-" + baseName;
@@ -1316,24 +1285,31 @@ function AddBeatForm({ genres, onAdded }: { genres: GenreConfig[]; onAdded: () =
 
       setProgress("Enregistrement…");
       const tags = form.tags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean);
-      const { error: dbErr } = await supabase.from("beats").insert({
-        title: form.title.toUpperCase(),
-        genre: form.genre,
-        bpm: parseInt(form.bpm),
-        price: parseFloat(form.price),
-        wav_extra: form.wav_extra ? parseInt(form.wav_extra) : null,
-        exclusive_price: form.exclusive_price ? parseInt(form.exclusive_price) : null,
-        preview_url: presign.previewPublicUrl,
-        full_file_path: fullName,
-        wav_file_path: wavName ?? null,
-        stems_zip_path: zipName ?? null,
-        image_url: imageUrl,
-        description: form.description || null,
-        tags: tags.length > 0 ? tags : null,
-        key: form.key.trim() || null,
-        duration: form.duration ? parseInt(form.duration) : null,
+      const saveRes = await fetch("/api/beats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          title: form.title.toUpperCase(),
+          genre: form.genre,
+          bpm: parseInt(form.bpm),
+          price: parseFloat(form.price),
+          wav_extra: form.wav_extra ? parseInt(form.wav_extra) : null,
+          exclusive_price: form.exclusive_price ? parseInt(form.exclusive_price) : null,
+          preview_url: presign.previewPublicUrl,
+          full_file_path: fullName,
+          wav_file_path: wavName ?? null,
+          stems_zip_path: zipName ?? null,
+          image_url: imageUrl,
+          description: form.description || null,
+          tags: tags.length > 0 ? tags : null,
+          key: form.key.trim() || null,
+          duration: form.duration ? parseInt(form.duration) : null,
+        }),
       });
-      if (dbErr) throw new Error(dbErr.message);
+      if (!saveRes.ok) {
+        const d = await saveRes.json();
+        throw new Error(d.error ?? "Erreur serveur");
+      }
 
       setStatus("success");
       setTimeout(() => onAdded(), 800);

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSetting } from "@/lib/db";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 
-// POST public — envoi de l'email de confirmation de commande au client
 export async function POST(req: NextRequest) {
   try {
     const { buyerName, buyerEmail, beatTitles, total, hasExclusive } = await req.json();
@@ -11,31 +10,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
     }
 
-    const db = supabaseAdmin();
-
-    // Récupérer les moyens de paiement et l'email de contact en parallèle
-    const [{ data: paymentData }, { data: contactData }] = await Promise.all([
-      db.from("settings").select("value").eq("key", "payment_config").single(),
-      db.from("settings").select("value").eq("key", "contact_email").single(),
+    const [paymentRaw, contactEmail] = await Promise.all([
+      getSetting("payment_config"),
+      getSetting("contact_email"),
     ]);
 
-    const contactEmail = contactData?.value ?? "contact@toxic-beats.fr";
-
     let paymentMethods: {
-      id: string;
-      type: "paypal" | "virement" | "lydia" | "sumeria" | "custom";
-      label: string;
-      value: string;
-      active: boolean;
+      id: string; type: "paypal" | "virement" | "lydia" | "sumeria" | "custom";
+      label: string; value: string; active: boolean;
     }[] = [];
     try {
-      const parsed = JSON.parse(paymentData?.value ?? "{}");
+      const parsed = JSON.parse(paymentRaw ?? "{}");
       paymentMethods = (parsed.methods ?? []).filter(
-        (m: { active: boolean; value: string }) => m.active && m.value
+        (m: { active: boolean; value: string }) => m.active && m.value,
       );
     } catch { /* ignore */ }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-beats.fr";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
 
     await sendOrderConfirmationEmail({
       buyerName,
@@ -45,7 +36,7 @@ export async function POST(req: NextRequest) {
       hasExclusive: !!hasExclusive,
       paymentMethods,
       siteUrl,
-      contactEmail,
+      contactEmail: contactEmail ?? "contact@toxic-beats.fr",
     });
 
     return NextResponse.json({ success: true });

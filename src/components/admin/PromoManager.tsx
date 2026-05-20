@@ -1,7 +1,10 @@
 "use client";
 
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
+
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import { Plus, Trash2, ToggleLeft, ToggleRight, Tag, RefreshCw } from "lucide-react";
 
 type PromoType = "percentage" | "fixed" | "free_mp3" | "free_wav" | "free_exclusive" | "free_kit";
@@ -58,10 +61,10 @@ export default function PromoManager() {
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const authHeaders = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    
     return {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${session?.access_token}`,
+      "Authorization": `Bearer ${getToken()}`,
     };
   }, []);
 

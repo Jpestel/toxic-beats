@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Save, Loader2, CheckCircle, Plus, Trash2, Upload, Share2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import {
   SocialIcon, PREDEFINED_NETWORKS,
   DEFAULT_SOCIALS_CONFIG,
   type SocialsConfig, type CustomSocialNetwork,
 } from "@/lib/socialIcons";
+
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
 
 function Toggle({ active, onChange }: { active: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -103,8 +106,7 @@ export default function SocialManager() {
   const handleIconUpload = async (file: File, customId: string) => {
     setUploadingId(customId);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = getToken();
       const optimized = await resizeIcon(file);
       const fileName = `icon-${Date.now()}.webp`;
 
@@ -131,10 +133,10 @@ export default function SocialManager() {
   const handleSave = async () => {
     setStatus("saving");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = getToken();
       const res = await fetch("/api/settings/socials", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ config }),
       });
       if (!res.ok) throw new Error();

@@ -1,51 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAuthedUser, isAdmin } from "@/lib/auth";
+import pool, { queryOne } from "@/lib/db";
 import { Resend } from "resend";
 
-const db = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-async function verifyAdmin(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer ")) return false;
-  const token = auth.slice(7);
-  const { data: { user }, error } = await db.auth.getUser(token);
-  if (error || !user) return false;
-  return user.user_metadata?.role !== "customer";
+async function checkAdmin(req: NextRequest) {
+  const user = await getAuthedUser(req);
+  return user && isAdmin(user) ? user : null;
 }
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await verifyAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!await checkAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { id } = await params;
-  const { subject, body } = await req.json();
+  const { id }             = await params;
+  const { subject, body }  = await req.json();
 
   if (!subject?.trim() || !body?.trim()) {
     return NextResponse.json({ error: "Sujet et message requis." }, { status: 400 });
   }
 
-  // Récupérer la demande
-  const { data: request, error: reqError } = await db
-    .from("beat_requests")
-    .select("name, email")
-    .eq("id", id)
-    .single();
+  const request = await queryOne<{ name: string; email: string }>(
+    "SELECT name, email FROM beat_requests WHERE id = ? LIMIT 1",
+    [id],
+  );
 
-  if (reqError || !request) {
-    return NextResponse.json({ error: "Demande introuvable." }, { status: 404 });
-  }
+  if (!request) return NextResponse.json({ error: "Demande introuvable." }, { status: 404 });
 
   const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
 
   const { error } = await resend.emails.send({
-    from: fromEmail,
-    to: request.email,
+    from:    fromEmail,
+    to:      request.email,
     subject: subject.trim(),
     html: `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
@@ -72,11 +61,11 @@ export async function POST(
     return NextResponse.json({ error: "Erreur lors de l'envoi." }, { status: 500 });
   }
 
-  // Passer la demande en "in_progress" si elle est encore "new"
-  await db.from("beat_requests")
-    .update({ status: "in_progress" })
-    .eq("id", id)
-    .eq("status", "new");
+  const now = new Date().toISOString().replace("T", " ").replace("Z", "");
+  await pool.execute(
+    "UPDATE beat_requests SET status = 'in_progress', replied_at = ? WHERE id = ? AND status = 'new'",
+    [now, id],
+  );
 
   return NextResponse.json({ ok: true });
 }

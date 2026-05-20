@@ -1,41 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAuthedUser, isAdmin } from "@/lib/auth";
+import pool from "@/lib/db";
 
-const db = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-async function verifyAdmin(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer ")) return false;
-  const token = auth.slice(7);
-  const { data: { user }, error } = await db.auth.getUser(token);
-  if (error || !user) return false;
-  return user.user_metadata?.role !== "customer";
+async function checkAdmin(req: NextRequest) {
+  const user = await getAuthedUser(req);
+  return user && isAdmin(user) ? user : null;
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await verifyAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!await checkAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-
-  const { error } = await db.from("beat_requests").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await pool.execute("DELETE FROM beat_requests WHERE id = ?", [id]);
   return NextResponse.json({ ok: true });
 }
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!await verifyAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { id } = await params;
-  const body = await req.json();
+  if (!await checkAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id }   = await params;
+  const body     = await req.json();
+  const allowed  = ["status", "reply_text", "replied_at"];
 
-  const { error } = await db.from("beat_requests").update(body).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const sets: string[] = [];
+  const values: unknown[] = [];
+
+  for (const [k, v] of Object.entries(body)) {
+    if (!allowed.includes(k)) continue;
+    sets.push(`\`${k}\` = ?`);
+    values.push(v);
+  }
+
+  if (sets.length) {
+    values.push(id);
+    await pool.execute(`UPDATE beat_requests SET ${sets.join(", ")} WHERE id = ?`, values as (string | number | boolean | null)[]);
+  }
+
   return NextResponse.json({ ok: true });
 }

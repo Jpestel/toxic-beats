@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
 import type { NewsletterSubscriber } from "@/types";
+
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
 import {
   Trash2, Send, Eye, EyeOff, Users, CheckCircle, Clock, UserMinus,
   Download, RefreshCw, Bold, Italic, Link as LinkIcon, Minus, Heading2,
@@ -85,10 +88,10 @@ export default function NewsletterManager() {
 
   const fetchSubscribers = async () => {
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setLoading(false); return; }
+    
+    const token = getToken();
     const res = await fetch("/api/admin/newsletter/subscribers", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${token}` },
     });
     const json = await res.json();
     setSubscribers(json.subscribers || []);
@@ -99,11 +102,11 @@ export default function NewsletterManager() {
 
   const deleteSubscriber = async (id: string) => {
     setDeletingId(id);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    
+    const token = getToken();
     await fetch("/api/admin/newsletter/subscribers", {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
     setSubscribers(prev => prev.filter(s => s.id !== id));
@@ -208,13 +211,13 @@ export default function NewsletterManager() {
     if (!file) return;
     setImageUploading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      
+      const token = getToken();
       const formData = new FormData();
       formData.append("file", file);
       const res = await fetch("/api/admin/newsletter/upload-image", {
         method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       const json = await res.json();
@@ -235,11 +238,11 @@ export default function NewsletterManager() {
     setSendError(null);
     setSendResult(null);
     setConfirmSend(false);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setSending(false); return; }
+    
+    const token = getToken();
     const res = await fetch("/api/admin/newsletter/send", {
       method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ subject, body_html: bodyHtml }),
     });
     const json = await res.json();

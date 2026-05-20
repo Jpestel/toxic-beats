@@ -1,13 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+// Ce fichier est conservé pour compatibilité mais Supabase est remplacé
+// par MySQL (src/lib/db.ts) + JWT maison (src/lib/auth.ts).
+// Ne plus importer depuis ce fichier — il ne fait rien.
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-export function supabaseAdmin() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(supabaseUrl, serviceKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-}
+export {};

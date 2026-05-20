@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { execute, getSetting } from "@/lib/db";
 import { Resend } from "resend";
+import { randomUUID } from "crypto";
 
-const db = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   const { name, email, project_type, style, budget, deadline, inspirations, description, honeypot } = await req.json();
 
-  // Anti-bot
   if (honeypot) return NextResponse.json({ ok: true });
 
-  // Validation
   if (!name?.trim() || !email?.trim() || !description?.trim()) {
     return NextResponse.json({ error: "Nom, email et description requis." }, { status: 400 });
   }
@@ -25,43 +20,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Décris ton projet plus en détail (20 caractères min)." }, { status: 400 });
   }
 
-  // Save to DB
-  const { error: dbError } = await db.from("beat_requests").insert({
-    name: name.trim(),
-    email: email.trim(),
-    project_type: project_type ?? "",
-    style: style ?? "",
-    budget: budget ?? "",
-    deadline: deadline ?? "",
-    inspirations: inspirations ?? "",
-    description: description.trim(),
-    status: "new",
-  });
+  await execute(
+    `INSERT INTO beat_requests (id, name, email, project_type, style, budget, deadline, inspirations, description, status)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
+    [
+      randomUUID(),
+      name.trim(), email.trim(),
+      project_type ?? "", style ?? "", budget ?? "",
+      deadline ?? "", inspirations ?? "",
+      description.trim(), "new",
+    ],
+  );
 
-  if (dbError) {
-    console.error("beat_request insert error:", dbError);
-    return NextResponse.json({ error: "Erreur lors de l'enregistrement." }, { status: 500 });
-  }
-
-  // Fetch contact email
-  const { data: siteSetting } = await db.from("settings").select("value").eq("key", "site").single();
-  const toEmail: string = siteSetting?.value?.contact_email || process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
+  const toEmail   = (await getSetting("contact_email")) || process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
   const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
 
   const rows = [
-    ["Nom", name.trim()],
-    ["Email", email.trim()],
-    ["Type de projet", project_type || "—"],
-    ["Style / Genre", style || "—"],
-    ["Budget", budget || "—"],
-    ["Deadline", deadline || "—"],
-    ["Inspirations", inspirations || "—"],
+    ["Nom",             name.trim()],
+    ["Email",           email.trim()],
+    ["Type de projet",  project_type || "—"],
+    ["Style / Genre",   style        || "—"],
+    ["Budget",          budget       || "—"],
+    ["Deadline",        deadline     || "—"],
+    ["Inspirations",    inspirations || "—"],
   ];
 
   await resend.emails.send({
-    from: fromEmail,
-    to: toEmail,
-    replyTo: email.trim(),
+    from: fromEmail, to: toEmail, replyTo: email.trim(),
     subject: `[Beat sur demande] ${name.trim()}`,
     html: `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>

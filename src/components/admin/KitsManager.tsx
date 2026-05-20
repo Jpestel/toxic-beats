@@ -2,8 +2,12 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, Package, Upload, Loader2, X, Pencil, Eye, EyeOff, FileArchive } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import type { Kit } from "@/types";
+
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("toxic_auth_token");
+}
 
 const KITS_PAGE_SIZE = 6;
 
@@ -18,36 +22,37 @@ export default function KitsManager() {
 
   const fetchKits = async () => {
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    // Admin voit tous les kits (y compris cachés)
-    const { data } = await supabase
-      .from("kits")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setKits(data ?? []);
-    setLoading(false);
-    // session used for type-checking only
-    void session;
+    try {
+      const res = await fetch("/api/kits", {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      const data = res.ok ? await res.json() : [];
+      setKits(data);
+    } catch (err) {
+      console.error("fetchKits error:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchKits(); }, []);
 
   const deleteKit = async (kit: Kit) => {
     if (!confirm(`Supprimer le kit "${kit.title}" définitivement ?`)) return;
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     await fetch(`/api/kits/${kit.id}`, {
       method: "DELETE",
-      headers: { "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Authorization": `Bearer ${token}` },
     });
     await fetchKits();
   };
 
   const toggleStatus = async (kit: Kit) => {
     const newStatus = kit.status === "available" ? "hidden" : "available";
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     await fetch(`/api/kits/${kit.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ status: newStatus }),
     });
     await fetchKits();
@@ -366,13 +371,13 @@ function KitForm({ kit, onSaved, onCancel }: {
     if (!previewFile) return;
     setPreviewUploadState("uploading");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = getToken();
       const ext = previewFile.name.split(".").pop() ?? "wav";
       const kitPreviewName = `kits/preview-${Date.now()}.${ext}`;
 
       const res = await fetch("/api/upload/presign", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ kitPreviewName }),
       });
       const { kitPreviewSignedUrl, kitPreviewPublicUrl } = await res.json();
@@ -395,12 +400,12 @@ function KitForm({ kit, onSaved, onCancel }: {
     if (!zipFile) return;
     setZipUploadState("uploading");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = getToken();
       const kitZipName = `kits/zip-${Date.now()}.zip`;
 
       const res = await fetch("/api/upload/presign", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ kitZipName }),
       });
       const { kitZipSignedUrl } = await res.json();
@@ -422,13 +427,13 @@ function KitForm({ kit, onSaved, onCancel }: {
     if (!coverFile) return;
     setCoverUploadState("uploading");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = getToken();
       const ext = coverFile.name.split(".").pop() ?? "jpg";
       const coverName = `kits/cover-${Date.now()}.${ext}`;
 
       const res = await fetch("/api/upload/presign", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ coverName }),
       });
       const { coverSignedUrl, coverPublicUrl } = await res.json();
@@ -457,7 +462,7 @@ function KitForm({ kit, onSaved, onCancel }: {
 
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = getToken();
       const payload = {
         title,
         description,
@@ -474,7 +479,7 @@ function KitForm({ kit, onSaved, onCancel }: {
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(payload),
       });
 

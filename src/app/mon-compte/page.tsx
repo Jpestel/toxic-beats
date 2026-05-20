@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { LogIn, LogOut, Download, Clock, CheckCircle, Package, Music, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import type { Session } from "@supabase/supabase-js";
+
+type Session = { token: string; email: string } | null;
 
 type Order = {
   id: string;
@@ -41,16 +41,14 @@ export default function MonComptePage() {
 
   // Récupère la session au chargement
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    const token = localStorage.getItem("toxic_auth_token");
+    if (!token) { setLoading(false); return; }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    fetch("/api/auth/me", { headers: { authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(data => { if (data.email) setSession({ token, email: data.email }); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   // Charge les commandes + vérifie si admin quand la session est disponible
@@ -61,7 +59,7 @@ export default function MonComptePage() {
 
     // Commandes
     fetch("/api/account/orders", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${session.token}` },
     })
       .then(r => r.json())
       .then(data => setOrders(data.orders ?? []))
@@ -69,7 +67,7 @@ export default function MonComptePage() {
 
     // Rôle admin
     fetch("/api/auth/me", {
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${session.token}` },
     })
       .then(r => r.json())
       .then(data => setIsAdmin(data.isAdmin === true));
@@ -80,16 +78,28 @@ export default function MonComptePage() {
     e.preventDefault();
     setLoginLoading(true);
     setLoginError("");
-
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setLoginError("Email ou mot de passe incorrect");
+    try {
+      const res  = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLoginError(data.error ?? "Email ou mot de passe incorrect");
+      } else {
+        localStorage.setItem("toxic_auth_token", data.token);
+        setSession({ token: data.token, email: data.email });
+      }
+    } catch {
+      setLoginError("Erreur réseau.");
     }
     setLoginLoading(false);
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem("toxic_auth_token");
+    setSession(null);
     setOrders([]);
     setIsAdmin(false);
   };
@@ -205,7 +215,7 @@ export default function MonComptePage() {
           <div>
             <div className="mb-8">
               <p className="text-xs text-neutral-500 font-mono uppercase tracking-widest mb-1">Connecté en tant que</p>
-              <h1 className="text-xl font-black text-white">{session.user.email}</h1>
+              <h1 className="text-xl font-black text-white">{session.email}</h1>
               {isAdmin && (
                 <p className="text-xs text-[#b400ff] font-mono mt-1 flex items-center gap-1">
                   <ShieldCheck size={11} /> Compte administrateur
@@ -282,7 +292,7 @@ export default function MonComptePage() {
                             orderId={order.id}
                             licenseType={order.license_type}
                             productType={order.product_type}
-                            accessToken={session.access_token}
+                            accessToken={session.token}
                             dlUrl={dlUrl}
                           />
                         )}

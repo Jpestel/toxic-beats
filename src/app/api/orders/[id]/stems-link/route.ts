@@ -1,44 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthedUser } from "@/lib/auth";
+import { queryOne } from "@/lib/db";
+import { existsSync } from "fs";
+import { join } from "path";
 
-async function getAuthedUser(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const db = supabaseAdmin();
-  const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user;
-}
+const UPLOAD_BASE = process.env.UPLOAD_SERVER_PATH ?? "/var/www/toxic-files";
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const { id } = await params;
-  const db = supabaseAdmin();
 
-  const { data: order, error: orderErr } = await db
-    .from("orders")
-    .select("beat_id, buyer_name, beat_title")
-    .eq("id", id)
-    .single();
-  if (orderErr || !order) return NextResponse.json({ error: "Commande introuvable" }, { status: 404 });
+  const order = await queryOne<{
+    beat_id: string; download_token: string | null;
+  }>(
+    "SELECT beat_id, download_token FROM orders WHERE id = ? LIMIT 1",
+    [id],
+  );
+  if (!order) return NextResponse.json({ error: "Commande introuvable" }, { status: 404 });
 
-  const { data: beat, error: beatErr } = await db
-    .from("beats")
-    .select("stems_zip_path, title")
-    .eq("id", order.beat_id)
-    .single();
-  if (beatErr || !beat) return NextResponse.json({ error: "Beat introuvable" }, { status: 404 });
+  const beat = await queryOne<{ stems_zip_path: string | null; title: string }>(
+    "SELECT stems_zip_path, title FROM beats WHERE id = ? LIMIT 1",
+    [order.beat_id],
+  );
+  if (!beat) return NextResponse.json({ error: "Beat introuvable" }, { status: 404 });
   if (!beat.stems_zip_path) return NextResponse.json({ error: "Pas de ZIP de pistes pour ce beat" }, { status: 404 });
 
-  const { data: signed, error: signErr } = await db.storage
-    .from("beats")
-    .createSignedUrl(beat.stems_zip_path, 60 * 60 * 24 * 7, {
-      download: `${beat.title}-stems.zip`,
-    });
-  if (signErr || !signed) return NextResponse.json({ error: signErr?.message ?? "Erreur" }, { status: 500 });
+  const localPath = join(UPLOAD_BASE, "beats", beat.stems_zip_path);
+  if (!existsSync(localPath)) {
+    return NextResponse.json({ error: "Fichier ZIP introuvable sur le serveur" }, { status: 404 });
+  }
 
-  return NextResponse.json({ zipUrl: signed.signedUrl, beatTitle: beat.title });
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
+  const zipUrl  = order.download_token
+    ? `${siteUrl}/download/${order.download_token}?file=zip`
+    : null;
+
+  return NextResponse.json({ zipUrl, beatTitle: beat.title });
 }

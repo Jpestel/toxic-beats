@@ -1,35 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthedUser, isAdmin } from "@/lib/auth";
+import { execute, queryAll } from "@/lib/db";
+import { randomUUID } from "crypto";
 
-async function getAuthedUser(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const db = supabaseAdmin();
-  const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user;
-}
-
-// GET public — liste les kits disponibles
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const db = supabaseAdmin();
-    const { data, error } = await db
-      .from("kits")
-      .select("*")
-      .eq("status", "available")
-      .order("created_at", { ascending: false });
-
-    if (error) throw error;
-    return NextResponse.json(data ?? []);
+    const user = await getAuthedUser(req);
+    const adminView = user && isAdmin(user);
+    const data = await queryAll(
+      adminView
+        ? "SELECT * FROM kits ORDER BY created_at DESC"
+        : "SELECT * FROM kits WHERE status = 'available' ORDER BY created_at DESC",
+    );
+    return NextResponse.json(data);
   } catch (err) {
     console.error("[kits GET]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
 
-// POST admin — crée un kit
 export async function POST(req: NextRequest) {
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -42,24 +31,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Champs manquants (title, price)" }, { status: 400 });
     }
 
-    const db = supabaseAdmin();
-    const { data, error } = await db
-      .from("kits")
-      .insert({
-        title,
-        description: description ?? "",
-        price,
-        preview_url: preview_url ?? "",
-        preview_path: preview_path ?? "",
-        zip_path: zip_path ?? null,
-        image_url: image_url ?? null,
-        status: status ?? "available",
-      })
-      .select()
-      .single();
+    const id = randomUUID();
+    await execute(
+      `INSERT INTO kits (id, title, description, price, preview_url, preview_path, zip_path, image_url, status)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
+      [
+        id, title, description ?? "", price,
+        preview_url ?? "", preview_path ?? "",
+        zip_path ?? null, image_url ?? null,
+        status ?? "available",
+      ],
+    );
 
-    if (error) throw error;
-    return NextResponse.json(data);
+    return NextResponse.json({ id, title, description, price, preview_url, preview_path, zip_path, image_url, status });
   } catch (err) {
     console.error("[kits POST]", err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

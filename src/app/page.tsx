@@ -33,7 +33,6 @@ const GRID_COLS_CLASS: Record<number, string> = {
   4: "grid-cols-2 lg:grid-cols-4",
 };
 import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package, Music2, BookOpen, Menu, X, Mic2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import { SocialIcon, type SocialsConfig } from "@/lib/socialIcons";
 import { PLATFORMS, PlatformIcon, type PlatformLink } from "@/lib/platforms";
 
@@ -175,14 +174,10 @@ export default function HomePage() {
       .then(d => setTheme({ ...THEME_DEFAULTS, ...d }))
       .catch(() => {});
     // Charger les beats
-    supabase
-      .from("beats")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => {
-        setBeats(data ?? []);
-        setLoadingBeats(false);
-      });
+    fetch("/api/beats")
+      .then(r => r.json())
+      .then(data => { setBeats(Array.isArray(data) ? data : []); setLoadingBeats(false); })
+      .catch(() => setLoadingBeats(false));
     // Charger les kits
     fetch("/api/kits")
       .then(r => r.json())

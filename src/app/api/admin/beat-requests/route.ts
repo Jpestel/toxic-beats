@@ -1,28 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getAuthedUser, isAdmin } from "@/lib/auth";
+import { queryAll } from "@/lib/db";
 
-const db = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-async function verifyAdmin(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (!auth?.startsWith("Bearer ")) return false;
-  const token = auth.slice(7);
-  const { data: { user }, error } = await db.auth.getUser(token);
-  if (error || !user) return false;
-  return user.user_metadata?.role !== "customer";
+async function checkAdmin(req: NextRequest) {
+  const user = await getAuthedUser(req);
+  return user && isAdmin(user) ? user : null;
 }
 
 export async function GET(req: NextRequest) {
-  if (!await verifyAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!await checkAdmin(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await db
-    .from("beat_requests")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+  const data = await queryAll(
+    "SELECT * FROM beat_requests ORDER BY created_at DESC",
+  );
+  return NextResponse.json(data);
 }

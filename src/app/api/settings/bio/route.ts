@@ -1,20 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthedUser } from "@/lib/auth";
+import { queryAll, upsertSetting } from "@/lib/db";
 import { createHmac } from "crypto";
 
-const UPLOAD_SECRET  = process.env.UPLOAD_SECRET ?? "toxic-upload-secret-change-me";
-const FILES_BASE_URL = process.env.FILES_BASE_URL ?? "https://toxic-files.com/files";
+const UPLOAD_SECRET  = process.env.UPLOAD_SECRET  ?? "toxic-upload-secret-change-me";
+const FILES_BASE_URL = process.env.FILES_BASE_URL  ?? "https://toxic-files.com/files";
 const SITE_URL       = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
-
-async function getAuthedUser(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const db = supabaseAdmin();
-  const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user;
-}
 
 function makeToken(bucket: string, filename: string): string {
   const expires = Date.now() + 30 * 60 * 1000;
@@ -23,20 +14,15 @@ function makeToken(bucket: string, filename: string): string {
   return Buffer.from(`${payload}|${sig}`).toString("base64url");
 }
 
-// GET — lecture publique de bio_text et bio_image_url
 export async function GET() {
-  const db = supabaseAdmin();
-  const { data } = await db
-    .from("settings")
-    .select("key, value")
-    .in("key", ["bio_text", "bio_image_url"]);
-
+  const rows = await queryAll<{ key: string; value: string }>(
+    "SELECT `key`, value FROM settings WHERE `key` IN ('bio_text','bio_image_url')",
+  );
   const result: Record<string, string | null> = { bio_text: null, bio_image_url: null };
-  (data ?? []).forEach((row) => { result[row.key] = row.value; });
+  rows.forEach((r) => { result[r.key] = r.value; });
   return NextResponse.json(result);
 }
 
-// POST — URL d'upload signée vers le serveur local
 export async function POST(req: NextRequest) {
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
@@ -50,22 +36,13 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// PATCH — sauvegarde bio_text et/ou bio_image_url
 export async function PATCH(req: NextRequest) {
   const user = await getAuthedUser(req);
   if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const db = supabaseAdmin();
-
-  const updates: { key: string; value: string }[] = [];
-  if (body.bio_text      !== undefined) updates.push({ key: "bio_text",      value: body.bio_text });
-  if (body.bio_image_url !== undefined) updates.push({ key: "bio_image_url", value: body.bio_image_url });
-
-  if (updates.length) {
-    const { error } = await db.from("settings").upsert(updates);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (body.bio_text      !== undefined) await upsertSetting("bio_text",      body.bio_text);
+  if (body.bio_image_url !== undefined) await upsertSetting("bio_image_url", body.bio_image_url);
 
   return NextResponse.json({ success: true });
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import { Loader2, ChevronDown, ChevronUp, Send, Clock, CheckCircle, XCircle, Zap, Trash2 } from "lucide-react";
 
 type BeatRequest = {
@@ -30,9 +29,8 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-async function getToken() {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? "";
+function getToken() {
+  return typeof window !== "undefined" ? (localStorage.getItem("toxic_auth_token") ?? "") : "";
 }
 
 export default function BeatRequestsManager() {
@@ -52,7 +50,7 @@ export default function BeatRequestsManager() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const token = await getToken();
+    const token = getToken();
     const res = await fetch("/api/admin/beat-requests", { headers: { authorization: `Bearer ${token}` } });
     const data = await res.json();
     if (Array.isArray(data)) {
@@ -75,7 +73,7 @@ export default function BeatRequestsManager() {
   // Auto-refresh toutes les 30s + détection nouvelles demandes
   useEffect(() => {
     const poll = async () => {
-      const token = await getToken();
+      const token = getToken();
       const res = await fetch("/api/admin/beat-requests", { headers: { authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!Array.isArray(data)) return;
@@ -104,7 +102,7 @@ export default function BeatRequestsManager() {
 
   async function updateStatus(id: string, status: BeatRequest["status"]) {
     setSavingId(id);
-    const token = await getToken();
+    const token = getToken();
     await fetch(`/api/admin/beat-requests/${id}`, {
       method: "PUT",
       headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -117,7 +115,7 @@ export default function BeatRequestsManager() {
   async function deleteRequest(id: string) {
     if (!confirm("Supprimer définitivement cette demande ?")) return;
     setDeletingId(id);
-    const token = await getToken();
+    const token = getToken();
     await fetch(`/api/admin/beat-requests/${id}`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
     setRequests(prev => prev.filter(r => r.id !== id));
     setDeletingId(null);
@@ -133,7 +131,7 @@ export default function BeatRequestsManager() {
 
   async function sendReply(id: string) {
     setSendingReply(id);
-    const token = await getToken();
+    const token = getToken();
     const res = await fetch(`/api/admin/beat-requests/${id}/reply`, {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },
@@ -153,7 +151,7 @@ export default function BeatRequestsManager() {
 
   async function saveNotes(id: string) {
     setSavingId(id);
-    const token = await getToken();
+    const token = getToken();
     await fetch(`/api/admin/beat-requests/${id}`, {
       method: "PUT",
       headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },

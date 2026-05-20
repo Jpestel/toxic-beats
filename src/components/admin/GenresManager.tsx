@@ -1,8 +1,11 @@
 "use client";
 
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
+
 import { useState, useEffect, useRef } from "react";
 import { Plus, Trash2, Save, Loader2, CheckCircle, Tag, Lock, Upload, X } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import type { GenreConfig } from "@/types";
 
 const DEFAULT_GENRES: GenreConfig[] = [
@@ -55,11 +58,11 @@ export default function GenresManager() {
   const uploadCover = async (index: number, file: File) => {
     setUploadingIdx(index);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      
       const coverName = `genre-${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
       const res = await fetch("/api/upload/presign", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
         body: JSON.stringify({ coverName }),
       });
       const presign = await res.json();
@@ -88,12 +91,12 @@ export default function GenresManager() {
     setStatus("saving");
     setError("");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      
       const res = await fetch("/api/settings/genres", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
+          "Authorization": `Bearer ${getToken()}`,
         },
         body: JSON.stringify({ genres: valid }),
       });

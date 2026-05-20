@@ -1,23 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getSetting } from "@/lib/db";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const db = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export async function POST(req: NextRequest) {
   const { name, email, message, honeypot } = await req.json();
 
-  // Anti-bot honeypot — si le champ caché est rempli, c'est un bot
-  if (honeypot) {
-    return NextResponse.json({ ok: true }); // silencieux pour ne pas alerter le bot
-  }
+  if (honeypot) return NextResponse.json({ ok: true });
 
-  // Validation basique
   if (!name?.trim() || !email?.trim() || !message?.trim()) {
     return NextResponse.json({ error: "Tous les champs sont requis." }, { status: 400 });
   }
@@ -28,23 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message trop court." }, { status: 400 });
   }
 
-  // Récupérer l'email de Lucas depuis les settings (jamais exposé côté client)
-  const { data: siteSetting } = await db
-    .from("settings")
-    .select("value")
-    .eq("key", "site")
-    .single();
-
-  const toEmail: string = siteSetting?.value?.contact_email
-    || process.env.RESEND_FROM_EMAIL
-    || "noreply@toxic-files.com";
-
+  const toEmail   = (await getSetting("contact_email")) || process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
   const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
 
   const { error } = await resend.emails.send({
-    from: fromEmail,
-    to: toEmail,
-    replyTo: email,
+    from: fromEmail, to: toEmail, replyTo: email,
     subject: `[Contact TOXIC] ${name}`,
     html: `<!DOCTYPE html>
 <html>
@@ -73,9 +52,7 @@ export async function POST(req: NextRequest) {
           <div style="background:#111;border-left:3px solid #b400ff;padding:20px 24px;border-radius:0 8px 8px 0;">
             <p style="margin:0;color:#cccccc;font-size:15px;line-height:1.8;white-space:pre-wrap;">${message.trim().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
           </div>
-          <p style="margin:20px 0 0;font-size:11px;color:#444;font-family:Helvetica,Arial,sans-serif;">
-            Réponds directement à cet email pour contacter <strong style="color:#666;">${name.trim()}</strong>.
-          </p>
+          <p style="margin:20px 0 0;font-size:11px;color:#444;">Réponds directement à cet email pour contacter <strong style="color:#666;">${name.trim()}</strong>.</p>
         </td></tr>
         <tr><td style="padding:16px 40px;border-top:1px solid #1a1a1a;text-align:center;">
           <p style="margin:0;font-size:11px;color:#333;">toxic-files.com</p>

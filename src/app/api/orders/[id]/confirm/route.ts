@@ -1,92 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getAuthedUser } from "@/lib/auth";
+import pool, { queryOne } from "@/lib/db";
 import { randomBytes } from "crypto";
-
-async function getAuthedUser(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const db = supabaseAdmin();
-  const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user) return null;
-  return data.user;
-}
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
   const user = await getAuthedUser(req);
-  if (!user) {
-    return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
-  }
+  if (!user) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   try {
-    const db = supabaseAdmin();
+    const order = await queryOne<{
+      id: string; status: string; beat_id: string | null;
+      license_type: string; product_type: string;
+    }>(
+      "SELECT id, status, beat_id, license_type, product_type FROM orders WHERE id = ? LIMIT 1",
+      [id],
+    );
 
-    const { data: order, error: fetchError } = await db
-      .from("orders")
-      .select("*")
-      .eq("id", id)
-      .single();
+    if (!order) return NextResponse.json({ error: "Commande introuvable" }, { status: 404 });
+    if (order.status === "paid") return NextResponse.json({ error: "Déjà confirmée" }, { status: 400 });
 
-    if (fetchError || !order) {
-      return NextResponse.json({ error: "Commande introuvable" }, { status: 404 });
-    }
-
-    if (order.status === "paid") {
-      return NextResponse.json({ error: "Déjà confirmée" }, { status: 400 });
-    }
-
-    // Pour les kits, pas de vérification de disponibilité
-    if (order.product_type !== "kit") {
-      // Vérifier que le beat n'est pas déjà vendu (commande en double ou anomalie)
-      const { data: beat } = await db
-        .from("beats")
-        .select("status, title")
-        .eq("id", order.beat_id)
-        .single();
-
+    if (order.product_type !== "kit" && order.beat_id) {
+      const beat = await queryOne<{ status: string; title: string }>(
+        "SELECT status, title FROM beats WHERE id = ? LIMIT 1", [order.beat_id],
+      );
       if (beat?.status === "sold") {
         return NextResponse.json(
-          { error: `Le beat "${beat.title}" a déjà été vendu. Vérifie qu'il n'y a pas une commande en double avant de confirmer.` },
-          { status: 409 }
+          { error: `Le beat "${beat.title}" a déjà été vendu.` },
+          { status: 409 },
         );
       }
     }
 
-    const token = randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+    const token   = randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 48 * 60 * 60 * 1000)
+      .toISOString()
+      .replace("T", " ")
+      .replace("Z", "");
 
-    const { error: updateError } = await db
-      .from("orders")
-      .update({
-        status: "paid",
-        download_token: token,
-        token_expires_at: expires,
-        token_used: false,
-      })
-      .eq("id", id);
+    await pool.execute(
+      "UPDATE orders SET status='paid', download_token=?, token_expires_at=?, token_used=0 WHERE id=?",
+      [token, expires, id],
+    );
 
-    if (updateError) throw updateError;
-
-    // Pour les beats uniquement : mettre à jour le statut du beat
     if (order.product_type !== "kit" && order.beat_id) {
-      // Licence exclusive → beat vendu définitivement
-      // Licence non-exclusive (mp3/wav) → beat reste disponible
       if (order.license_type === "exclusive") {
-        await db.from("beats").update({ status: "sold" }).eq("id", order.beat_id);
+        await pool.execute("UPDATE beats SET status='sold' WHERE id=?", [order.beat_id]);
       } else {
-        await db.from("beats").update({ status: "available" }).eq("id", order.beat_id);
+        await pool.execute("UPDATE beats SET status='available' WHERE id=?", [order.beat_id]);
       }
     }
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-beats.fr";
-    const downloadBase = `${siteUrl}/download/${token}`;
+    const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
+    const downloadUrl = `${siteUrl}/download/${token}`;
 
-    return NextResponse.json({ success: true, downloadUrl: downloadBase, token });
+    return NextResponse.json({ success: true, downloadUrl, token });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });

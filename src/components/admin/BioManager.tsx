@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Upload, Loader2, CheckCircle, User, FileText, Save } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
 
 export default function BioManager() {
   const [bioText, setBioText]       = useState("");
@@ -55,8 +58,7 @@ export default function BioManager() {
     if (!file) return;
     setStatusImg("uploading"); setError("");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = getToken();
       const optimized = await resizeSquare(file);
       const fileName = `bio-photo-${Date.now()}.webp`;
 
@@ -98,10 +100,10 @@ export default function BioManager() {
   const handleSaveText = async () => {
     setStatusText("saving");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = getToken();
       const res = await fetch("/api/settings/bio", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ bio_text: bioText }),
       });
       if (!res.ok) throw new Error();

@@ -1,8 +1,11 @@
 "use client";
 
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
+
 import { useState, useEffect, useRef } from "react";
 import { Upload, Loader2, CheckCircle, ImageIcon, Info, Mail } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 export default function SiteManager() {
   const [currentBanner, setCurrentBanner] = useState<string | null>(null);
@@ -37,10 +40,10 @@ export default function SiteManager() {
     setEmailError("");
     setEmailSaved(false);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      
       const res = await fetch("/api/settings/site", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
         body: JSON.stringify({ contact_email: contactEmail }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
@@ -87,10 +90,10 @@ export default function SiteManager() {
 
   const handleFitChange = async (fit: "cover" | "contain") => {
     setBannerFit(fit);
-    const { data: { session } } = await supabase.auth.getSession();
+    
     await fetch("/api/settings/banner", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
       body: JSON.stringify({ banner_fit: fit }),
     });
   };
@@ -108,8 +111,7 @@ export default function SiteManager() {
     setError("");
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = getToken();
 
       // Redimensionner + compresser avant upload
       setProgress("Optimisation de l'image…");
@@ -120,7 +122,7 @@ export default function SiteManager() {
       setProgress("Préparation…");
       const presignRes = await fetch("/api/settings/banner", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
         body: JSON.stringify({ fileName }),
       });
       const presign = await presignRes.json();
@@ -139,7 +141,7 @@ export default function SiteManager() {
       setProgress("Enregistrement…");
       const saveRes = await fetch("/api/settings/banner", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
         body: JSON.stringify({ banner_url: presign.publicUrl, banner_fit: bannerFit }),
       });
       if (!saveRes.ok) throw new Error("Erreur lors de la sauvegarde");

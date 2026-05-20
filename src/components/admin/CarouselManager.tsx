@@ -1,8 +1,11 @@
 "use client";
 
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
+
 import { useState, useEffect } from "react";
 import { Loader2, CheckCircle, LayoutList } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 type CarouselConfig = {
   visible: boolean;
@@ -72,10 +75,10 @@ export default function CarouselManager() {
 
   const save = async () => {
     setStatus("saving");
-    const { data: { session } } = await supabase.auth.getSession();
+    
     const res = await fetch("/api/settings/carousel", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getToken()}` },
       body: JSON.stringify(config),
     });
     setStatus(res.ok ? "success" : "error");

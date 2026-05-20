@@ -1,8 +1,11 @@
 "use client";
 
+function getToken() {
+  return typeof window !== "undefined" ? localStorage.getItem("toxic_auth_token") : null;
+}
+
 import { useState, useEffect } from "react";
 import { Loader2, CheckCircle, Palette, Type, LayoutGrid, Eye, Columns, MonitorSmartphone, ArrowUp, ArrowDown, GripVertical, Navigation, ShoppingCart, Package, User, Mail } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 type ThemeConfig = {
   site_name:        string;
@@ -124,10 +127,10 @@ export default function ThemeManager() {
 
   const save = async () => {
     setStatus("saving");
-    const { data: { session } } = await supabase.auth.getSession();
+    
     const res = await fetch("/api/settings/theme", {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
       body: JSON.stringify(config),
     });
     setStatus(res.ok ? "success" : "error");

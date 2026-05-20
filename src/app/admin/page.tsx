@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2, Mail, BookOpen, Mic2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 import type { Order } from "@/types";
-import type { User } from "@supabase/supabase-js";
 import BeatsManager from "@/components/admin/BeatsManager";
 import KitsManager from "@/components/admin/KitsManager";
 import SiteManager from "@/components/admin/SiteManager";
@@ -24,6 +22,11 @@ import BeatRequestsManager from "@/components/admin/BeatRequestsManager";
 
 const ORDER_PAGE_SIZE = 10;
 
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("toxic_auth_token");
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState<"orders" | "beats" | "kits" | "bio" | "socials" | "payment" | "site" | "promos" | "credits" | "analytics" | "newsletter" | "blog" | "requests">("orders");
   const [orderSub, setOrderSub] = useState<"pending" | "paid" | "cancelled" | "deleted" | "archived">("pending");
@@ -31,7 +34,7 @@ export default function AdminPage() {
   const [paidPage, setPaidPage] = useState(1);
   const [cancelledPage, setCancelledPage] = useState(1);
   const [deletedPage, setDeletedPage] = useState(1);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<{ email: string; isAdmin: boolean } | null>(null);
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -60,21 +63,23 @@ export default function AdminPage() {
 
   // Check session on mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null);
+    const token = getToken();
+    if (token) {
+      fetch("/api/auth/me", { headers: { authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => { if (data.email) setUser({ email: data.email, isAdmin: data.isAdmin }); })
+        .catch(() => {})
+        .finally(() => setChecking(false));
+    } else {
       setChecking(false);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => listener.subscription.unsubscribe();
+    }
   }, []);
 
   // Polling badge "Sur demande" toutes les 30s
   useEffect(() => {
     if (!user) return;
     const fetchBadge = async () => {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const token = getToken();
       if (!token) return;
       const res = await fetch("/api/admin/beat-requests", { headers: { authorization: `Bearer ${token}` } });
       const data = await res.json();
@@ -90,9 +95,9 @@ export default function AdminPage() {
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = getToken();
       const res = await fetch("/api/orders", {
-        headers: { "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -111,11 +116,11 @@ export default function AdminPage() {
   }, [user, fetchOrders]);
 
   const fetchStorageInfo = useCallback(async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) return;
+    const token = getToken();
+    if (!token) return;
     try {
       const res = await fetch("/api/storage-usage", {
-        headers: { "Authorization": `Bearer ${session.access_token}` },
+        headers: { "Authorization": `Bearer ${token}` },
       });
       if (res.ok) {
         const d = await res.json();
@@ -139,18 +144,35 @@ export default function AdminPage() {
     e.preventDefault();
     setLoginLoading(true);
     setLoginError("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setLoginError("Email ou mot de passe incorrect.");
+    try {
+      const res  = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLoginError(data.error ?? "Email ou mot de passe incorrect.");
+      } else {
+        localStorage.setItem("toxic_auth_token", data.token);
+        setUser({ email: data.email, isAdmin: data.isAdmin });
+      }
+    } catch {
+      setLoginError("Erreur réseau.");
+    }
     setLoginLoading(false);
   };
 
-  const handleLogout = () => supabase.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem("toxic_auth_token");
+    setUser(null);
+  };
 
   const confirmPayment = async (orderId: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     const res = await fetch(`/api/orders/${orderId}/confirm`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Authorization": `Bearer ${token}` },
     });
     const data = await res.json();
     if (data.success) {
@@ -164,10 +186,10 @@ export default function AdminPage() {
   const sendFiles = async (orderId: string) => {
     setSendingFilesId(orderId);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = getToken();
       const res = await fetch(`/api/orders/${orderId}/send-files`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Authorization": `Bearer ${token}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -189,10 +211,10 @@ export default function AdminPage() {
   const cancelOrder = async (orderId: string) => {
     if (!confirm("Annuler cette commande ? Le beat redeviendra disponible à la vente.")) return;
     setCancellingId(orderId);
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ status: "cancelled" }),
     });
     setCancellingId(null);
@@ -212,11 +234,11 @@ export default function AdminPage() {
   const selectAll = (ids: string[]) => setSelectedIds(new Set(ids));
 
   const bulkPatch = async (ids: string[], body: object) => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     await Promise.all(ids.map((id) =>
       fetch(`/api/orders/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(body),
       })
     ));
@@ -251,10 +273,10 @@ export default function AdminPage() {
 
   const permanentDelete = async (orderId: string) => {
     if (!confirm("Supprimer définitivement cette commande ? Elle sera effacée de la base de données et irrécupérable.")) return;
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     const res = await fetch(`/api/orders/${orderId}`, {
       method: "DELETE",
-      headers: { "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Authorization": `Bearer ${token}` },
     });
     const data = await res.json();
     if (!res.ok) { alert(data.error ?? "Erreur lors de la suppression."); return; }
@@ -264,11 +286,11 @@ export default function AdminPage() {
   const bulkPermanentDelete = async (ids: string[]) => {
     if (!confirm(`Supprimer définitivement ${ids.length} commande(s) ? Cette action est irréversible.`)) return;
     setBulkLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     await Promise.all(ids.map((id) =>
       fetch(`/api/orders/${id}`, {
         method: "DELETE",
-        headers: { "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Authorization": `Bearer ${token}` },
       })
     ));
     clearSelection();
@@ -315,12 +337,12 @@ export default function AdminPage() {
 
   const archiveMonth = async (orderIds: string[]) => {
     if (!confirm(`Archiver ces ${orderIds.length} commande(s) ?`)) return;
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     const now = new Date().toISOString();
     await Promise.all(orderIds.map((id) =>
       fetch(`/api/orders/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ archived_at: now }),
       })
     ));
@@ -329,11 +351,11 @@ export default function AdminPage() {
 
   const unarchiveMonth = async (orderIds: string[]) => {
     if (!confirm(`Désarchiver ces ${orderIds.length} commande(s) ?`)) return;
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     await Promise.all(orderIds.map((id) =>
       fetch(`/api/orders/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ archived_at: null }),
       })
     ));
@@ -343,10 +365,10 @@ export default function AdminPage() {
   const revertToPending = async (orderId: string) => {
     if (!confirm("Remettre cette commande en attente de paiement ? Le lien de téléchargement sera invalidé et le beat repassera en réservé.")) return;
     setRevertingId(orderId);
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     const res = await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ status: "pending" }),
     });
     const data = await res.json();
@@ -361,10 +383,10 @@ export default function AdminPage() {
   const deleteOrder = async (orderId: string) => {
     if (!confirm("Supprimer cette commande ? Elle sera archivée et pourra être restaurée depuis l'onglet Supprimées.")) return;
     setDeletingId(orderId);
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     const res = await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ status: "deleted" }),
     });
     const data = await res.json();
@@ -378,10 +400,10 @@ export default function AdminPage() {
 
   const restoreDeleted = async (orderId: string) => {
     if (!confirm("Restaurer cette commande dans les annulées ?")) return;
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     const res = await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ status: "cancelled" }),
     });
     const data = await res.json();
@@ -394,10 +416,10 @@ export default function AdminPage() {
 
   const restoreOrder = async (orderId: string) => {
     if (!confirm("Restaurer cette commande ? Le beat sera de nouveau marqué comme réservé.")) return;
-    const { data: { session } } = await supabase.auth.getSession();
+    const token = getToken();
     const res = await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ status: "pending" }),
     });
     const data = await res.json();
