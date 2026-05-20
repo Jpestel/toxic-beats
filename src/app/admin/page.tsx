@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2, Mail, BookOpen, Mic2, KeyRound } from "lucide-react";
+import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2, Mail, BookOpen, Mic2, KeyRound, Menu, X } from "lucide-react";
 import type { Order } from "@/types";
 import BeatsManager from "@/components/admin/BeatsManager";
 import KitsManager from "@/components/admin/KitsManager";
@@ -33,6 +33,7 @@ export default function AdminPage() {
   const [catalogueSub, setCatalogueSub] = useState<"beats" | "kits">("beats");
   const [profilSub, setProfilSub]       = useState<"bio" | "socials" | "credits">("bio");
   const [contenuSub, setContenuSub]     = useState<"newsletter" | "blog">("newsletter");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [orderSub, setOrderSub] = useState<"pending" | "paid" | "cancelled" | "deleted" | "archived">("pending");
   const [pendingPage, setPendingPage] = useState(1);
   const [paidPage, setPaidPage] = useState(1);
@@ -554,7 +555,7 @@ export default function AdminPage() {
         <div className="flex items-center gap-2">
           {tab === "orders" && (
             <button onClick={fetchOrders} disabled={loading}
-              className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white transition-colors px-2.5 py-2 rounded-lg bg-[#1a1a1a]">
+              className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white transition-colors px-2.5 py-2 rounded-lg bg-[#1a1a1a]">
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
               <span className="hidden sm:inline">Actualiser</span>
             </button>
@@ -565,16 +566,83 @@ export default function AdminPage() {
 
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-red-400 transition-colors px-2.5 py-2 rounded-lg bg-[#1a1a1a]"
+            className="hidden sm:flex items-center gap-1.5 text-xs text-neutral-500 hover:text-red-400 transition-colors px-2.5 py-2 rounded-lg bg-[#1a1a1a]"
           >
             <LogOut size={14} />
             <span className="hidden sm:inline">Déconnexion</span>
           </button>
+
+          {/* Burger mobile */}
+          <button
+            onClick={() => setMobileMenuOpen(o => !o)}
+            className="sm:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] text-neutral-400"
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-[#1a1a1a] bg-[#0d0d0d] overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+      {/* ===== MENU MOBILE ===== */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden fixed inset-0 z-[60] flex flex-col" style={{ background: "#080808f5", backdropFilter: "blur(12px)" }}>
+          <div className="h-14 flex items-center justify-between px-5 border-b border-[#1a1a1a]">
+            <span className="text-sm font-black tracking-widest text-white font-mono">MENU ADMIN</span>
+            <button onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] text-neutral-400">
+              <X size={18} />
+            </button>
+          </div>
+          <nav className="flex flex-col gap-2 p-5 flex-1 overflow-y-auto">
+            {([
+              { id: "orders",    label: "Commandes",   icon: <ShoppingBag size={20} />, badge: pending.length },
+              { id: "catalogue", label: "Catalogue",   icon: <Music       size={20} />, badge: 0 },
+              { id: "requests",  label: "Sur demande", icon: <Mic2        size={20} />, badge: newRequestsBadge },
+              { id: "profil",    label: "Profil",      icon: <UserCircle  size={20} />, badge: 0 },
+              { id: "contenu",   label: "Contenu",     icon: <BookOpen    size={20} />, badge: 0 },
+              { id: "payment",   label: "Paiement",    icon: <CreditCard  size={20} />, badge: 0 },
+              { id: "promos",    label: "Promos",      icon: <Tag         size={20} />, badge: 0 },
+              { id: "analytics", label: "Analytics",   icon: <BarChart2   size={20} />, badge: 0 },
+              { id: "site",      label: "Site",        icon: <Globe       size={20} />, badge: 0 },
+              { id: "password",  label: "Compte",      icon: <KeyRound    size={20} />, badge: 0 },
+            ] as { id: typeof tab; label: string; icon: React.ReactNode; badge: number }[]).map(t => (
+              <button
+                key={t.id}
+                onClick={() => { setTab(t.id); if (t.id === "requests") setNewRequestsBadge(0); setMobileMenuOpen(false); }}
+                className="flex items-center gap-4 w-full px-5 py-4 rounded-2xl border transition-all text-left"
+                style={tab === t.id
+                  ? { background: "#b400ff15", borderColor: "#b400ff50", color: "#b400ff" }
+                  : { background: "#111", borderColor: "#1a1a1a", color: "#aaa" }
+                }
+              >
+                {t.icon}
+                <span className="font-bold tracking-widest uppercase text-sm">{t.label}</span>
+                {t.badge > 0 && (
+                  <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-black text-black" style={{ background: "#f59e0b" }}>
+                    {t.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+            <div className="border-t border-[#1a1a1a] mt-2 pt-4 space-y-2">
+              <a href="/"
+                className="flex items-center gap-4 w-full px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a] text-neutral-500"
+              >
+                <Globe size={20} />
+                <span className="font-bold tracking-widest uppercase text-sm">← Retour au site</span>
+              </a>
+              <button
+                onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                className="flex items-center gap-4 w-full px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a] text-red-400"
+              >
+                <LogOut size={20} />
+                <span className="font-bold tracking-widest uppercase text-sm">Déconnexion</span>
+              </button>
+            </div>
+          </nav>
+        </div>
+      )}
+
+      {/* Tabs desktop */}
+      <div className="hidden sm:block border-b border-[#1a1a1a] bg-[#0d0d0d] overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         <div className="flex gap-0 min-w-max px-2">
           {[
             { id: "orders"    as const, label: "Commandes",  icon: <ShoppingBag size={14} />, badge: pending.length },
