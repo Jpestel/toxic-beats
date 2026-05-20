@@ -5,7 +5,7 @@ function getToken() {
 }
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, CheckCircle } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, CheckCircle, CreditCard } from "lucide-react";
 
 type PaymentMethod = {
   id: string;
@@ -13,6 +13,11 @@ type PaymentMethod = {
   label: string;
   value: string;
   active: boolean;
+};
+
+type StripeConfig = {
+  enabled: boolean;
+  mode: "test" | "live";
 };
 
 const PREDEFINED = [
@@ -28,15 +33,17 @@ function uid() {
 
 export default function PaymentManager() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [stripe, setStripe]   = useState<StripeConfig>({ enabled: false, mode: "test" });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
 
   useEffect(() => {
     fetch("/api/settings/payment")
       .then((r) => r.json())
       .then((data) => {
         setMethods(data.methods ?? []);
+        setStripe(data.stripe ?? { enabled: false, mode: "test" });
         setLoading(false);
       });
   }, []);
@@ -67,7 +74,7 @@ export default function PaymentManager() {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${getToken()}`,
       },
-      body: JSON.stringify({ methods }),
+      body: JSON.stringify({ methods, stripe }),
     });
     setSaving(false);
     setSaved(true);
@@ -163,6 +170,51 @@ export default function PaymentManager() {
           })}
         </div>
       )}
+
+      {/* ── Section Stripe ── */}
+      <div className="mb-6 p-4 rounded-xl border border-[#2a2a2a] bg-[#0d0d0d]">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <CreditCard size={15} className="text-[#635bff]" />
+            <span className="text-sm font-bold text-white">Stripe</span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded" style={{ background: "#635bff20", color: "#635bff" }}>Carte bancaire</span>
+          </div>
+          <button
+            onClick={() => setStripe(s => ({ ...s, enabled: !s.enabled }))}
+            className="relative flex-shrink-0 w-11 h-6 rounded-full transition-all duration-200"
+            style={{ background: stripe.enabled ? "#635bff" : "#2a2a2a", boxShadow: stripe.enabled ? "0 0 10px rgba(99,91,255,0.4)" : "none" }}
+          >
+            <span className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all duration-200"
+              style={{ left: stripe.enabled ? "calc(100% - 1.375rem)" : "2px" }} />
+          </button>
+        </div>
+
+        {stripe.enabled && (
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              {(["test", "live"] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setStripe(s => ({ ...s, mode: m }))}
+                  className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all"
+                  style={stripe.mode === m
+                    ? { background: m === "test" ? "#f59e0b20" : "#39ff1420", color: m === "test" ? "#f59e0b" : "#39ff14", border: `1px solid ${m === "test" ? "#f59e0b40" : "#39ff1440"}` }
+                    : { background: "#1a1a1a", color: "#555", border: "1px solid #2a2a2a" }
+                  }
+                >
+                  {m === "test" ? "🧪 Test" : "🚀 Live"}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-neutral-600 leading-relaxed">
+              {stripe.mode === "test"
+                ? "Mode test — utilise les cartes de test Stripe (4242 4242 4242 4242). Aucun vrai paiement."
+                : "Mode live — les vrais paiements sont encaissés. Assure-toi que les clés live sont configurées sur le serveur."
+              }
+            </p>
+          </div>
+        )}
+      </div>
 
       <button
         onClick={save}
