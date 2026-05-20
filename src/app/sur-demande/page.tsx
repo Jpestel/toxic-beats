@@ -96,7 +96,7 @@ export default function SurDemandePage() {
               <div>
                 <label className={labelClass}>Ton nom / artiste *</label>
                 <input type="text" required value={form.name} onChange={e => set("name", e.target.value)}
-                  placeholder="Lil Wayne, Soprano..." className={inputClass}
+                  placeholder="Skrilla, Young67, Lil 67..." className={inputClass}
                   onFocus={e => (e.target.style.borderColor = "#b400ff80")} onBlur={e => (e.target.style.borderColor = "#2a2a2a")} />
               </div>
               <div>

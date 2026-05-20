@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ChevronDown, ChevronUp, Mail, Clock, CheckCircle, XCircle, Zap } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp, Send, Clock, CheckCircle, XCircle, Zap } from "lucide-react";
 
 type BeatRequest = {
   id: string;
@@ -42,6 +42,11 @@ export default function BeatRequestsManager() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<"all" | BeatRequest["status"]>("all");
+  const [replyOpen, setReplyOpen] = useState<string | null>(null);
+  const [replySubject, setReplySubject] = useState<Record<string, string>>({});
+  const [replyBody, setReplyBody] = useState<Record<string, string>>({});
+  const [sendingReply, setSendingReply] = useState<string | null>(null);
+  const [replySuccess, setReplySuccess] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,6 +74,34 @@ export default function BeatRequestsManager() {
     });
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     setSavingId(null);
+  }
+
+  function openReply(req: BeatRequest) {
+    setReplyOpen(req.id);
+    setReplySuccess(null);
+    if (!replySubject[req.id]) {
+      setReplySubject(s => ({ ...s, [req.id]: `Re: Beat sur mesure — ${req.name}` }));
+    }
+  }
+
+  async function sendReply(id: string) {
+    setSendingReply(id);
+    const token = await getToken();
+    const res = await fetch(`/api/admin/beat-requests/${id}/reply`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ subject: replySubject[id] ?? "", body: replyBody[id] ?? "" }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setReplySuccess(id);
+      setReplyBody(b => ({ ...b, [id]: "" }));
+      // Mettre à jour le statut localement si "new" → "in_progress"
+      setRequests(prev => prev.map(r => r.id === id && r.status === "new" ? { ...r, status: "in_progress" } : r));
+    } else {
+      alert(data.error ?? "Erreur lors de l'envoi.");
+    }
+    setSendingReply(null);
   }
 
   async function saveNotes(id: string) {
@@ -175,12 +208,15 @@ export default function BeatRequestsManager() {
                       <p className="text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">{req.description}</p>
                     </div>
 
-                    {/* Actions */}
+                    {/* Actions — statuts */}
                     <div className="flex flex-wrap gap-2">
-                      <a href={`mailto:${req.email}?subject=Re: Beat sur mesure - ${req.name}`}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono border border-[#2a2a2a] text-neutral-400 hover:text-white hover:border-[#444] transition-colors">
-                        <Mail size={13} /> Répondre
-                      </a>
+                      <button onClick={() => replyOpen === req.id ? setReplyOpen(null) : openReply(req)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono border transition-colors"
+                        style={replyOpen === req.id
+                          ? { background: "#b400ff22", color: "#b400ff", borderColor: "#b400ff44" }
+                          : { borderColor: "#2a2a2a", color: "#aaa" }}>
+                        <Send size={13} /> Répondre par email
+                      </button>
                       {(["new", "in_progress", "completed", "declined"] as const).map(s => {
                         if (s === req.status) return null;
                         const c = STATUS_CONFIG[s];
@@ -195,6 +231,47 @@ export default function BeatRequestsManager() {
                         );
                       })}
                     </div>
+
+                    {/* Formulaire de réponse */}
+                    {replyOpen === req.id && (
+                      <div className="bg-[#0a0010] border border-[#b400ff33] rounded-xl p-4 space-y-3">
+                        <p className="text-xs font-mono uppercase tracking-widest text-[#b400ff]">
+                          Répondre à {req.name} · <span className="text-neutral-500">{req.email}</span>
+                        </p>
+                        {replySuccess === req.id ? (
+                          <div className="flex items-center gap-2 py-3 text-[#39ff14] text-sm font-mono">
+                            <CheckCircle size={16} /> Email envoyé avec succès !
+                          </div>
+                        ) : (
+                          <>
+                            <input
+                              type="text"
+                              value={replySubject[req.id] ?? ""}
+                              onChange={e => setReplySubject(s => ({ ...s, [req.id]: e.target.value }))}
+                              placeholder="Sujet"
+                              className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#b400ff80] transition-colors"
+                            />
+                            <textarea
+                              rows={5}
+                              value={replyBody[req.id] ?? ""}
+                              onChange={e => setReplyBody(b => ({ ...b, [req.id]: e.target.value }))}
+                              placeholder={`Salut ${req.name},\n\nMerci pour ta demande…`}
+                              className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#b400ff80] transition-colors resize-none placeholder-neutral-700"
+                            />
+                            <div className="flex justify-end">
+                              <button
+                                onClick={() => sendReply(req.id)}
+                                disabled={sendingReply === req.id || !replyBody[req.id]?.trim()}
+                                className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold text-white transition-all hover:scale-105 disabled:opacity-50"
+                                style={{ background: "linear-gradient(135deg, #b400ff, #9000cc)" }}>
+                                {sendingReply === req.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                                Envoyer
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
 
                     {/* Notes */}
                     <div>
