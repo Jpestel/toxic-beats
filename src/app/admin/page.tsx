@@ -558,6 +558,33 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {tab === "analytics" && (
+        <div className="flex flex-col" style={{ height: "calc(100vh - 120px)" }}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
+            <div>
+              <h2 className="text-sm font-mono tracking-widest uppercase text-white">Analytics</h2>
+              <p className="text-xs text-[#555] mt-0.5 font-mono">Statistiques de trafic — Umami self-hosted</p>
+            </div>
+            <a
+              href="https://stats.toxic-files.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all"
+              style={{ background: "#b400ff18", border: "1px solid #b400ff44", color: "#b400ff" }}
+            >
+              <BarChart2 size={12} />
+              Ouvrir Umami
+            </a>
+          </div>
+          <iframe
+            src="https://stats.toxic-files.com"
+            className="w-full flex-1"
+            style={{ background: "#0d0d0d", border: "none" }}
+            title="Umami Analytics"
+          />
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto px-4 py-8">
 
         {tab === "beats"     && <BeatsManager />}
@@ -567,34 +594,6 @@ export default function AdminPage() {
         {tab === "payment"   && <PaymentManager />}
         {tab === "promos"    && <PromoManager />}
         {tab === "credits"   && <CreditsManager />}
-        {tab === "analytics" && (
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-mono tracking-widest uppercase text-white">Analytics</h2>
-                <p className="text-xs text-[#555] mt-1 font-mono">Statistiques de trafic — Umami self-hosted</p>
-              </div>
-              <a
-                href="https://stats.toxic-files.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all"
-                style={{ background: "#b400ff18", border: "1px solid #b400ff44", color: "#b400ff" }}
-              >
-                <BarChart2 size={12} />
-                Ouvrir Umami
-              </a>
-            </div>
-            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #1a1a1a" }}>
-              <iframe
-                src="https://stats.toxic-files.com"
-                className="w-full"
-                style={{ height: "80vh", background: "#0d0d0d", border: "none" }}
-                title="Umami Analytics"
-              />
-            </div>
-          </div>
-        )}
         {tab === "site" && (
           <>
             <SiteManager />
