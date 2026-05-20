@@ -359,7 +359,7 @@ export default function HomePage() {
 
       {/* ===== MENU MOBILE ===== */}
       {menuOpen && (
-        <div className="sm:hidden fixed inset-0 z-40 flex flex-col" style={{ background: `${theme.color_bg}f5`, backdropFilter: "blur(12px)" }}>
+        <div className="sm:hidden fixed inset-0 z-[60] flex flex-col" style={{ background: `${theme.color_bg}f5`, backdropFilter: "blur(12px)" }}>
           {/* Header du menu */}
           <div className="h-14 flex items-center justify-between px-6 border-b border-[#1a1a1a]">
             <span className="text-lg font-black tracking-widest text-white">MENU</span>
