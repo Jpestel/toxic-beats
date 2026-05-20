@@ -32,7 +32,7 @@ const GRID_COLS_CLASS: Record<number, string> = {
   3: "grid-cols-2 lg:grid-cols-3",
   4: "grid-cols-2 lg:grid-cols-4",
 };
-import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package, Music2 } from "lucide-react";
+import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package, Music2, BookOpen } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SocialIcon, type SocialsConfig } from "@/lib/socialIcons";
 import { PLATFORMS, PlatformIcon, type PlatformLink } from "@/lib/platforms";
@@ -133,6 +133,8 @@ export default function HomePage() {
   const [contactSuccess, setContactSuccess] = useState(false);
   const [contactError, setContactError] = useState("");
 
+  const [latestPosts, setLatestPosts] = useState<{ id: string; title: string; slug: string; excerpt: string; cover_url: string | null; published_at: string }[]>([]);
+
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterLoading, setNewsletterLoading] = useState(false);
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "success" | "error" | "already">("idle");
@@ -220,6 +222,11 @@ export default function HomePage() {
     fetch("/api/settings/credits")
       .then(r => r.json())
       .then(d => setCredits((d.credits ?? []).filter((c: Credit) => c.visible)))
+      .catch(() => {});
+    // Charger les derniers articles de blog
+    fetch("/api/blog")
+      .then(r => r.json())
+      .then(d => setLatestPosts((Array.isArray(d) ? d : []).slice(0, 3)))
       .catch(() => {});
     // Charger l'email de contact
     fetch("/api/settings/site")
@@ -337,6 +344,14 @@ export default function HomePage() {
               );
               return null;
             })}
+            {/* Lien Blog */}
+            <Link
+              href="/blog"
+              className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
+            >
+              <BookOpen size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent }} />
+              <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Actus</span>
+            </Link>
             {/* Lien Mon compte */}
             <Link
               href="/mon-compte"
@@ -837,6 +852,49 @@ export default function HomePage() {
                 </div>
               );
             })()}
+          </div>
+        </section>
+      )}
+
+      {/* ===== BLOG / ACTUS ===== */}
+      {latestPosts.length > 0 && (
+        <section id="actus" className="py-24 px-4 border-t border-[#1a1a1a]">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-end justify-between mb-10">
+              <div>
+                <p className="text-xs font-mono tracking-[0.4em] uppercase mb-2" style={{ color: theme.color_accent }}>◆ ACTUALITÉS ◆</p>
+                <h2 className="text-4xl font-black text-white">LE BLOG</h2>
+              </div>
+              <Link href="/blog" className="text-xs font-mono tracking-widest uppercase text-neutral-500 hover:text-white transition-colors flex items-center gap-1">
+                Tous les articles <ChevronRight size={13} />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {latestPosts.map(post => (
+                <Link
+                  key={post.id}
+                  href={`/blog/${post.slug}`}
+                  className="group block rounded-2xl overflow-hidden bg-[#0d0d0d] border border-[#1a1a1a] hover:border-[#b400ff44] transition-all duration-300 hover:scale-[1.02]"
+                >
+                  <div className="aspect-video overflow-hidden bg-[#111] relative">
+                    {post.cover_url ? (
+                      <img src={post.cover_url} alt={post.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #1a001a, #0d0d0d)" }}>
+                        <span className="text-3xl font-black opacity-10" style={{ color: theme.color_accent }}>TOXIC</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-5">
+                    <p className="text-[10px] font-mono text-neutral-600 mb-2">
+                      {new Date(post.published_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                    </p>
+                    <h3 className="font-black text-white leading-tight mb-2 group-hover:text-[#b400ff] transition-colors line-clamp-2">{post.title}</h3>
+                    {post.excerpt && <p className="text-neutral-500 text-xs leading-relaxed line-clamp-2">{post.excerpt}</p>}
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
       )}
