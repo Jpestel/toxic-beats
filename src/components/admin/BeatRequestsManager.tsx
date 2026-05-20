@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Loader2, ChevronDown, ChevronUp, Send, Clock, CheckCircle, XCircle, Zap } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp, Send, Clock, CheckCircle, XCircle, Zap, Trash2 } from "lucide-react";
 
 type BeatRequest = {
   id: string;
@@ -40,6 +40,7 @@ export default function BeatRequestsManager() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<"all" | BeatRequest["status"]>("all");
   const [replyOpen, setReplyOpen] = useState<string | null>(null);
@@ -74,6 +75,15 @@ export default function BeatRequestsManager() {
     });
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     setSavingId(null);
+  }
+
+  async function deleteRequest(id: string) {
+    if (!confirm("Supprimer définitivement cette demande ?")) return;
+    setDeletingId(id);
+    const token = await getToken();
+    await fetch(`/api/admin/beat-requests/${id}`, { method: "DELETE", headers: { authorization: `Bearer ${token}` } });
+    setRequests(prev => prev.filter(r => r.id !== id));
+    setDeletingId(null);
   }
 
   function openReply(req: BeatRequest) {
@@ -231,6 +241,20 @@ export default function BeatRequestsManager() {
                         );
                       })}
                     </div>
+
+                    {/* Suppression (uniquement si refusé) */}
+                    {req.status === "declined" && (
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => deleteRequest(req.id)}
+                          disabled={deletingId === req.id}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono border border-red-900 text-red-500 hover:bg-red-500/10 transition-colors"
+                        >
+                          {deletingId === req.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          Supprimer la demande
+                        </button>
+                      </div>
+                    )}
 
                     {/* Formulaire de réponse */}
                     {replyOpen === req.id && (
