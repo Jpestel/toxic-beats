@@ -133,15 +133,17 @@ export default function CoverPicker({ value, onChange, label }: Props) {
                       type="button"
                       onClick={() => handleLibraryPick(url)}
                       title={selected ? "Cliquer pour désélectionner" : "Sélectionner"}
-                      className="aspect-square rounded-lg overflow-hidden border-2 transition-all"
+                      className="rounded-lg overflow-hidden border-2 transition-all"
                       style={{ borderColor: selected ? "#b400ff" : "transparent", outline: selected ? "1px solid #b400ff" : "none" }}
                     >
-                      <img
-                        src={url}
-                        alt=""
-                        className="w-full h-full object-cover transition-opacity"
-                        style={{ opacity: selected ? 1 : 0.65 }}
-                      />
+                      <div className="relative w-full" style={{ paddingBottom: "100%" }}>
+                        <img
+                          src={url}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover transition-opacity"
+                          style={{ opacity: selected ? 1 : 0.65 }}
+                        />
+                      </div>
                     </button>
                   );
                 })}
