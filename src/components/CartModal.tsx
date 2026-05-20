@@ -367,7 +367,10 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
         </div>
       )}
       <p className="text-xs text-neutral-600 text-center mb-4">
-        Envoie ta confirmation de paiement — ton lien de téléchargement t&apos;arrivera dès validation.
+        {signupStatus === "success"
+          ? <>Dès validation du paiement, tes fichiers seront disponibles dans <a href="/mon-compte" className="text-[#b400ff] hover:underline">ton espace</a>.</>
+          : <>Envoie ta confirmation de paiement — ton lien de téléchargement t&apos;arrivera par email dès validation.</>
+        }
       </p>
 
       {/* Bloc création de compte */}
@@ -630,7 +633,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                     </div>
                   )}
                   <div className="text-xs text-neutral-500 bg-[#1a1a1a] rounded-lg p-3 mb-4 leading-relaxed">
-                    Remplis ce formulaire, effectue le paiement et envoie la confirmation. Tes liens de téléchargement t&apos;arriveront par email dès validation.
+                    Remplis ce formulaire et effectue le paiement. Dès validation, tes fichiers seront disponibles dans ton espace personnel (si tu crées un compte) ou envoyés par email.
                   </div>
 
                   <form onSubmit={handleSubmit} className="space-y-3">
