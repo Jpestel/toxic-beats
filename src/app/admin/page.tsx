@@ -58,7 +58,6 @@ export default function AdminPage() {
     previewBytes: number;
     coverBytes: number;
     quotaBytes: number;
-    resetDate: string;
   } | null>(null);
 
   // Check session on mount
@@ -130,7 +129,6 @@ export default function AdminPage() {
           previewBytes: d.previewBytes,
           coverBytes: d.coverBytes,
           quotaBytes: d.quotaBytes,
-          resetDate: d.resetDate,
         });
       }
     } catch { /* silencieux */ }
@@ -1443,14 +1441,13 @@ function StorageBar({ used, total, color }: { used: number; total: number; color
 }
 
 function StorageBadge({
-  totalBytes, beatBytes, previewBytes, coverBytes, quotaBytes, resetDate, onRefresh,
+  totalBytes, beatBytes, previewBytes, coverBytes, quotaBytes, onRefresh,
 }: {
   totalBytes: number;
   beatBytes: number;
   previewBytes: number;
   coverBytes: number;
   quotaBytes: number;
-  resetDate: string;
   onRefresh: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -1460,14 +1457,6 @@ function StorageBadge({
     pct >= 85 ? "#ef4444" :
     pct >= 60 ? "#f59e0b" :
     "#39ff14";
-
-  // Jours restants avant remise à zéro
-  const daysLeft = Math.ceil(
-    (new Date(resetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
-  const resetLabel = new Date(resetDate).toLocaleDateString("fr-FR", {
-    day: "numeric", month: "long", year: "numeric",
-  });
 
   return (
     <div className="relative">
@@ -1545,19 +1534,6 @@ function StorageBadge({
             </p>
           </div>
 
-          {/* ── DATE DE REMISE À ZÉRO ── */}
-          <div className="border-t border-[#1e1e1e] pt-3 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Remise à zéro</p>
-              <p className="text-xs font-bold text-white mt-0.5">{resetLabel}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-mono text-neutral-600">dans</p>
-              <p className="text-lg font-black" style={{ color: daysLeft <= 7 ? "#f59e0b" : "#00f5ff" }}>
-                {daysLeft}j
-              </p>
-            </div>
-          </div>
 
           {/* Alerte quota */}
           {pct >= 80 && (
