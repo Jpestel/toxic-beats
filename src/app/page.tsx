@@ -32,9 +32,16 @@ const GRID_COLS_CLASS: Record<number, string> = {
   3: "grid-cols-2 lg:grid-cols-3",
   4: "grid-cols-2 lg:grid-cols-4",
 };
-import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package } from "lucide-react";
+import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package, Music2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SocialIcon, type SocialsConfig } from "@/lib/socialIcons";
+import { PLATFORMS, PlatformIcon, type PlatformLink } from "@/lib/platforms";
+
+type Credit = {
+  id: string; artist_name: string; project_title: string; project_type: string;
+  beat_title: string; release_date: string; cover_url: string | null;
+  platforms: PlatformLink[]; description: string; visible: boolean;
+};
 
 
 export default function HomePage() {
@@ -114,6 +121,7 @@ export default function HomePage() {
   const [genres, setGenres] = useState<GenreConfig[]>([]);
   const [contactEmail, setContactEmail] = useState<string>("contact@toxic.fr");
   const [coverLibrary, setCoverLibrary] = useState<string[]>([]);
+  const [credits, setCredits] = useState<Credit[]>([]);
   const [showBackTop, setShowBackTop] = useState(false);
   const bannerImgRef = useRef<HTMLImageElement>(null);
 
@@ -191,6 +199,11 @@ export default function HomePage() {
     fetch("/api/settings/covers")
       .then(r => r.json())
       .then(d => setCoverLibrary(d.urls ?? []))
+      .catch(() => {});
+    // Charger les productions / crédits
+    fetch("/api/settings/credits")
+      .then(r => r.json())
+      .then(d => setCredits((d.credits ?? []).filter((c: Credit) => c.visible)))
       .catch(() => {});
     // Charger l'email de contact
     fetch("/api/settings/site")
@@ -529,6 +542,88 @@ export default function HomePage() {
                 ))}
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {/* ===== PRODUCTIONS / CRÉDITS ===== */}
+      {credits.length > 0 && (
+        <section id="productions" className="py-24 px-4 border-t border-[#1a1a1a]">
+          <div className="max-w-6xl mx-auto">
+            {/* Titre */}
+            <div className="text-center mb-12">
+              <p className="text-xs font-mono tracking-[0.3em] uppercase mb-2 flex items-center justify-center gap-2" style={{ color: theme.color_accent }}>
+                <span>◆</span> MES PRODUCTIONS <span>◆</span>
+              </p>
+              <h2 className="text-4xl md:text-5xl font-black text-white">
+                ILS ONT UTILISÉ MES BEATS
+              </h2>
+              <div className="w-16 h-0.5 mx-auto mt-4" style={{ background: `linear-gradient(90deg, transparent, ${theme.color_accent}, transparent)` }} />
+            </div>
+
+            {/* Grille */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {credits.map(credit => (
+                <div key={credit.id} className="group relative rounded-2xl overflow-hidden bg-[#111] border border-[#2a2a2a] transition-all duration-300 hover:border-[#3a3a3a] hover:scale-[1.02]"
+                  style={{ aspectRatio: "1/1" }}>
+                  {/* Artwork */}
+                  {credit.cover_url ? (
+                    <img src={credit.cover_url} alt={`${credit.artist_name} — ${credit.project_title}`}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center"
+                      style={{ background: `linear-gradient(135deg, ${theme.color_accent}20, ${theme.color_accent2}10)` }}>
+                      <Music2 size={40} className="text-neutral-700" />
+                    </div>
+                  )}
+
+                  {/* Gradient overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+
+                  {/* Badge type */}
+                  <div className="absolute top-2.5 left-2.5">
+                    <span className="text-[9px] font-black font-mono px-2 py-0.5 rounded-full tracking-widest uppercase"
+                      style={{ background: `${theme.color_accent}cc`, color: "#fff" }}>
+                      {credit.project_type}
+                    </span>
+                  </div>
+
+                  {/* Contenu bas */}
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-white font-black text-sm leading-tight truncate">{credit.artist_name}</p>
+                    <p className="text-neutral-300 text-xs truncate mt-0.5">{credit.project_title}</p>
+                    {credit.beat_title && (
+                      <p className="text-[10px] font-mono mt-1 truncate" style={{ color: theme.color_accent }}>
+                        Prod. TOXIC · {credit.beat_title}
+                      </p>
+                    )}
+                    {credit.release_date && (
+                      <p className="text-[10px] text-neutral-600 font-mono mt-0.5">
+                        {new Date(credit.release_date + "-01").toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}
+                      </p>
+                    )}
+
+                    {/* Plateformes */}
+                    {credit.platforms.length > 0 && (
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        {credit.platforms.filter(p => p.url).map(p => {
+                          const pl = PLATFORMS.find(pl => pl.id === p.id);
+                          return (
+                            <a key={p.id} href={p.url} target="_blank" rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="flex items-center justify-center w-6 h-6 rounded-full transition-transform hover:scale-110"
+                              style={{ background: `${pl?.color ?? "#888"}25`, color: pl?.color ?? "#888" }}
+                              title={pl?.label ?? p.id}>
+                              <PlatformIcon id={p.id} size={12} />
+                            </a>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       )}
