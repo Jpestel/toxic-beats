@@ -32,7 +32,7 @@ const GRID_COLS_CLASS: Record<number, string> = {
   3: "grid-cols-2 lg:grid-cols-3",
   4: "grid-cols-2 lg:grid-cols-4",
 };
-import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package, Music2, BookOpen } from "lucide-react";
+import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package, Music2, BookOpen, Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SocialIcon, type SocialsConfig } from "@/lib/socialIcons";
 import { PLATFORMS, PlatformIcon, type PlatformLink } from "@/lib/platforms";
@@ -132,6 +132,8 @@ export default function HomePage() {
   const [contactLoading, setContactLoading] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
   const [contactError, setContactError] = useState("");
+
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const [latestPosts, setLatestPosts] = useState<{ id: string; title: string; slug: string; excerpt: string; cover_url: string | null; published_at: string }[]>([]);
 
@@ -291,78 +293,132 @@ export default function HomePage() {
             </span>
           </Link>
 
-          {/* Actions — ordre défini par nav_order */}
-          <div className="flex items-center gap-1 sm:gap-2">
+          {/* ── DESKTOP NAV ── */}
+          <div className="hidden sm:flex items-center gap-2">
             {(theme.nav_order ?? ["beats", "kits", "about", "contact"]).map((id) => {
               if (id === "beats") return (
-                <button
-                  key="beats"
-                  onClick={() => cart.length > 0 ? setShowCart(true) : window.location.assign("#beats")}
-                  className="relative flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
-                >
-                  <ShoppingCart size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent }} />
-                  <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">
+                <button key="beats" onClick={() => cart.length > 0 ? setShowCart(true) : window.location.assign("#beats")}
+                  className="relative flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group">
+                  <ShoppingCart size={16} className="group-hover:scale-110 transition-transform" style={{ color: theme.color_accent }} />
+                  <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase">
                     {cart.length > 0 ? `Panier (${cart.length})` : "Beats"}
                   </span>
-                  {cart.length > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center sm:hidden"
-                      style={{ background: theme.color_accent, color: "#fff" }}>
-                      {cart.length}
-                    </span>
-                  )}
                 </button>
               );
               if (id === "kits") return (
-                <a
-                  key="kits"
-                  href="#kits"
-                  className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
-                >
-                  <Package size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent2 }} />
-                  <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Kits</span>
+                <a key="kits" href="#kits" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group">
+                  <Package size={16} className="group-hover:scale-110 transition-transform" style={{ color: theme.color_accent2 }} />
+                  <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase">Kits</span>
                 </a>
               );
               if (id === "about" && theme.show_about) return (
-                <a
-                  key="about"
-                  href="#about"
-                  className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
-                >
-                  <User size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent2 }} />
-                  <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">À propos</span>
+                <a key="about" href="#about" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group">
+                  <User size={16} className="group-hover:scale-110 transition-transform" style={{ color: theme.color_accent2 }} />
+                  <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase">À propos</span>
                 </a>
               );
               if (id === "contact" && theme.show_contact) return (
-                <a
-                  key="contact"
-                  href="#contact"
-                  className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
-                >
-                  <Mail size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent3 }} />
-                  <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Contact</span>
+                <a key="contact" href="#contact" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group">
+                  <Mail size={16} className="group-hover:scale-110 transition-transform" style={{ color: theme.color_accent3 }} />
+                  <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase">Contact</span>
                 </a>
               );
               return null;
             })}
-            {/* Lien Blog */}
-            <Link
-              href="/blog"
-              className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
-            >
-              <BookOpen size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent }} />
-              <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Actus</span>
+            <Link href="/blog" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group">
+              <BookOpen size={16} className="group-hover:scale-110 transition-transform" style={{ color: theme.color_accent }} />
+              <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase">Actus</span>
             </Link>
-            {/* Lien Mon compte */}
-            <Link
-              href="/mon-compte"
-              className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
-            >
-              <User size={16} className="group-hover:scale-110 transition-transform flex-shrink-0 text-neutral-400 group-hover:text-white" />
-              <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Mon compte</span>
+            <Link href="/mon-compte" className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group">
+              <User size={16} className="group-hover:scale-110 transition-transform text-neutral-400 group-hover:text-white" />
+              <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase">Mon compte</span>
             </Link>
+          </div>
+
+          {/* ── MOBILE : panier + burger ── */}
+          <div className="flex sm:hidden items-center gap-2">
+            {/* Panier toujours visible */}
+            <button onClick={() => cart.length > 0 ? setShowCart(true) : window.location.assign("#beats")}
+              className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-[#111] border border-[#2a2a2a]">
+              <ShoppingCart size={16} style={{ color: theme.color_accent }} />
+              {cart.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center"
+                  style={{ background: theme.color_accent, color: "#fff" }}>
+                  {cart.length}
+                </span>
+              )}
+            </button>
+            {/* Burger */}
+            <button onClick={() => setMenuOpen(o => !o)}
+              className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#111] border border-[#2a2a2a] text-neutral-400">
+              {menuOpen ? <X size={18} /> : <Menu size={18} />}
+            </button>
           </div>
         </div>
       </div>
+
+      {/* ===== MENU MOBILE ===== */}
+      {menuOpen && (
+        <div className="sm:hidden fixed inset-0 z-40 flex flex-col" style={{ background: `${theme.color_bg}f5`, backdropFilter: "blur(12px)" }}>
+          {/* Header du menu */}
+          <div className="h-14 flex items-center justify-between px-6 border-b border-[#1a1a1a]">
+            <span className="text-lg font-black tracking-widest text-white">MENU</span>
+            <button onClick={() => setMenuOpen(false)} className="flex items-center justify-center w-9 h-9 rounded-xl bg-[#111] border border-[#2a2a2a] text-neutral-400">
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Items */}
+          <nav className="flex flex-col gap-2 p-6 flex-1 overflow-y-auto">
+            {(theme.nav_order ?? ["beats", "kits", "about", "contact"]).map((id) => {
+              if (id === "beats") return (
+                <button key="beats" onClick={() => { setMenuOpen(false); window.location.assign("#beats"); }}
+                  className="flex items-center gap-4 w-full px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a] text-left">
+                  <ShoppingCart size={20} style={{ color: theme.color_accent }} />
+                  <span className="font-bold text-white tracking-widest uppercase text-sm">Beats</span>
+                </button>
+              );
+              if (id === "kits") return (
+                <a key="kits" href="#kits" onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a]">
+                  <Package size={20} style={{ color: theme.color_accent2 }} />
+                  <span className="font-bold text-white tracking-widest uppercase text-sm">Kits</span>
+                </a>
+              );
+              if (id === "about" && theme.show_about) return (
+                <a key="about" href="#about" onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a]">
+                  <User size={20} style={{ color: theme.color_accent2 }} />
+                  <span className="font-bold text-white tracking-widest uppercase text-sm">À propos</span>
+                </a>
+              );
+              if (id === "contact" && theme.show_contact) return (
+                <a key="contact" href="#contact" onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a]">
+                  <Mail size={20} style={{ color: theme.color_accent3 }} />
+                  <span className="font-bold text-white tracking-widest uppercase text-sm">Contact</span>
+                </a>
+              );
+              return null;
+            })}
+            <Link href="/blog" onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a]">
+              <BookOpen size={20} style={{ color: theme.color_accent }} />
+              <span className="font-bold text-white tracking-widest uppercase text-sm">Actus</span>
+            </Link>
+            <Link href="/mon-compte" onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a]">
+              <User size={20} className="text-neutral-400" />
+              <span className="font-bold text-white tracking-widest uppercase text-sm">Mon compte</span>
+            </Link>
+          </nav>
+
+          {/* Footer du menu */}
+          <div className="px-6 pb-8 pt-4 border-t border-[#1a1a1a] text-center">
+            <p className="text-xs font-mono text-neutral-700">© {new Date().getFullYear()} {theme.site_name || "TOXIC"}</p>
+          </div>
+        </div>
+      )}
 
       {/* ===== CONTENU (affiché après chargement bannière, ou sans bannière) ===== */}
       {(bannerLoaded || (!loadingBanner && !bannerUrl)) && <>
