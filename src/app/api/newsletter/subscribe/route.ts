@@ -21,17 +21,17 @@ export async function POST(req: NextRequest) {
     // Check if already exists
     const { data: existing } = await db
       .from("newsletter_subscribers")
-      .select("id, status")
+      .select("id, status, confirm_token")
       .eq("email", normalizedEmail)
       .single();
 
     if (existing) {
       if (existing.status === "confirmed") {
-        return NextResponse.json({ error: "Cet email est déjà inscrit." }, { status: 409 });
+        return NextResponse.json({ error: "Cet email est déjà inscrit.", code: "already_confirmed" }, { status: 409 });
       }
       if (existing.status === "pending") {
-        // Resend confirmation email
-        await sendConfirmEmail(normalizedEmail, existing.id);
+        // Resend confirmation email with existing token
+        await sendConfirmEmail(normalizedEmail, existing.confirm_token);
         return NextResponse.json({ message: "Email de confirmation renvoyé." });
       }
       if (existing.status === "unsubscribed") {
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 }
 
 async function sendConfirmEmail(email: string, token: string) {
-  const confirmUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "https://toxic-files.com"}/newsletter/confirm?token=${token}`;
+  const confirmUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "https://toxic-files.com"}/api/newsletter/confirm?token=${token}`;
 
   await resend.emails.send({
     from: process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com",
