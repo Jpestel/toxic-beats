@@ -14,6 +14,11 @@ export async function GET(req: NextRequest) {
 
   const parsed = beats.map(b => ({
     ...b,
+    price: Number(b.price),
+    wav_extra: b.wav_extra != null ? Number(b.wav_extra) : null,
+    exclusive_price: b.exclusive_price != null ? Number(b.exclusive_price) : null,
+    bpm: b.bpm != null ? Number(b.bpm) : null,
+    duration: b.duration != null ? Number(b.duration) : null,
     tags: typeof b.tags === "string" ? (() => { try { return JSON.parse(b.tags as string); } catch { return []; } })() : (b.tags ?? []),
   }));
 
