@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2 } from "lucide-react";
+import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Order } from "@/types";
 import type { User } from "@supabase/supabase-js";
@@ -22,7 +22,7 @@ import CreditsManager from "@/components/admin/CreditsManager";
 const ORDER_PAGE_SIZE = 10;
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"orders" | "beats" | "kits" | "bio" | "socials" | "payment" | "site" | "promos" | "credits">("orders");
+  const [tab, setTab] = useState<"orders" | "beats" | "kits" | "bio" | "socials" | "payment" | "site" | "promos" | "credits" | "analytics">("orders");
   const [orderSub, setOrderSub] = useState<"pending" | "paid" | "cancelled" | "deleted" | "archived">("pending");
   const [pendingPage, setPendingPage] = useState(1);
   const [paidPage, setPaidPage] = useState(1);
@@ -532,8 +532,9 @@ export default function AdminPage() {
             { id: "socials" as const, label: "Réseaux",  icon: <Share2 size={14} />,       badge: 0 },
             { id: "payment" as const, label: "Paiement", icon: <CreditCard size={14} />,   badge: 0 },
             { id: "promos"   as const, label: "Promos",      icon: <Tag    size={14} />,        badge: 0 },
-            { id: "credits"  as const, label: "Productions", icon: <Music2 size={14} />,        badge: 0 },
-            { id: "site"    as const, label: "Site",     icon: <Globe size={14} />,        badge: 0 },
+            { id: "credits"   as const, label: "Productions", icon: <Music2     size={14} />, badge: 0 },
+            { id: "analytics" as const, label: "Analytics",   icon: <BarChart2  size={14} />, badge: 0 },
+            { id: "site"     as const, label: "Site",        icon: <Globe      size={14} />, badge: 0 },
           ].map((t) => (
             <button
               key={t.id}
@@ -566,6 +567,34 @@ export default function AdminPage() {
         {tab === "payment"   && <PaymentManager />}
         {tab === "promos"    && <PromoManager />}
         {tab === "credits"   && <CreditsManager />}
+        {tab === "analytics" && (
+          <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-mono tracking-widest uppercase text-white">Analytics</h2>
+                <p className="text-xs text-[#555] mt-1 font-mono">Statistiques de trafic — Umami self-hosted</p>
+              </div>
+              <a
+                href="https://stats.toxic-files.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all"
+                style={{ background: "#b400ff18", border: "1px solid #b400ff44", color: "#b400ff" }}
+              >
+                <BarChart2 size={12} />
+                Ouvrir Umami
+              </a>
+            </div>
+            <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #1a1a1a" }}>
+              <iframe
+                src="https://stats.toxic-files.com"
+                className="w-full"
+                style={{ height: "80vh", background: "#0d0d0d", border: "none" }}
+                title="Umami Analytics"
+              />
+            </div>
+          </div>
+        )}
         {tab === "site" && (
           <>
             <SiteManager />
