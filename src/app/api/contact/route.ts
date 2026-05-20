@@ -10,7 +10,12 @@ const db = createClient(
 );
 
 export async function POST(req: NextRequest) {
-  const { name, email, message, captchaToken } = await req.json();
+  const { name, email, message, honeypot } = await req.json();
+
+  // Anti-bot honeypot — si le champ caché est rempli, c'est un bot
+  if (honeypot) {
+    return NextResponse.json({ ok: true }); // silencieux pour ne pas alerter le bot
+  }
 
   // Validation basique
   if (!name?.trim() || !email?.trim() || !message?.trim()) {
@@ -21,23 +26,6 @@ export async function POST(req: NextRequest) {
   }
   if (message.trim().length < 10) {
     return NextResponse.json({ error: "Message trop court." }, { status: 400 });
-  }
-
-  // Vérification CAPTCHA Turnstile (si configuré)
-  const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
-  if (turnstileSecret) {
-    if (!captchaToken) {
-      return NextResponse.json({ error: "Vérification CAPTCHA requise." }, { status: 400 });
-    }
-    const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ secret: turnstileSecret, response: captchaToken }),
-    });
-    const verifyData = await verifyRes.json();
-    if (!verifyData.success) {
-      return NextResponse.json({ error: "CAPTCHA invalide. Réessaie." }, { status: 400 });
-    }
   }
 
   // Récupérer l'email de Lucas depuis les settings (jamais exposé côté client)

@@ -128,10 +128,10 @@ export default function HomePage() {
   const [contactName, setContactName] = useState("");
   const [contactFormEmail, setContactFormEmail] = useState("");
   const [contactMessage, setContactMessage] = useState("");
+  const [contactHoneypot, setContactHoneypot] = useState(""); // anti-bot, caché
   const [contactLoading, setContactLoading] = useState(false);
   const [contactSuccess, setContactSuccess] = useState(false);
   const [contactError, setContactError] = useState("");
-  const [captchaToken, setCaptchaToken] = useState("");
 
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterLoading, setNewsletterLoading] = useState(false);
@@ -152,46 +152,6 @@ export default function HomePage() {
   }, [handleScroll]);
 
 
-  // Turnstile CAPTCHA — polling jusqu'à ce que le script ET le div soient disponibles
-  useEffect(() => {
-    const sitekey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-    if (!sitekey) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const win = window as any;
-    let widgetId: string | null = null;
-
-    const tryRender = (): boolean => {
-      const container = document.getElementById("cf-turnstile-widget");
-      if (!container || !win.turnstile || widgetId !== null) return false;
-      widgetId = win.turnstile.render(container, {
-        sitekey,
-        theme: "light",
-        callback: (token: string) => setCaptchaToken(token),
-        "expired-callback": () => setCaptchaToken(""),
-        "error-callback": () => setCaptchaToken(""),
-      });
-      return true;
-    };
-
-    // Injecter le script si pas déjà présent
-    if (!win.turnstile && !document.getElementById("cf-turnstile-script")) {
-      const script = document.createElement("script");
-      script.id = "cf-turnstile-script";
-      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      script.async = true;
-      document.head.appendChild(script);
-    }
-
-    // Essai immédiat puis polling toutes les 100ms
-    if (!tryRender()) {
-      const iv = setInterval(() => { if (tryRender()) clearInterval(iv); }, 100);
-      return () => {
-        clearInterval(iv);
-        if (widgetId !== null && win.turnstile) win.turnstile.remove(widgetId);
-      };
-    }
-    return () => { if (widgetId !== null && win.turnstile) win.turnstile.remove(widgetId); };
-  }, []);
 
   // Injecter les CSS variables du thème
   useEffect(() => {
@@ -743,7 +703,7 @@ export default function HomePage() {
                 <p className="text-white font-bold text-lg mb-2">Message envoyé !</p>
                 <p className="text-neutral-500 text-sm">Je te répondrai dès que possible.</p>
                 <button
-                  onClick={() => { setContactSuccess(false); setContactName(""); setContactFormEmail(""); setContactMessage(""); setCaptchaToken(""); }}
+                  onClick={() => { setContactSuccess(false); setContactName(""); setContactFormEmail(""); setContactMessage(""); setContactHoneypot(""); }}
                   className="mt-6 text-xs font-mono tracking-widest uppercase text-neutral-500 hover:text-white transition-colors"
                 >
                   Envoyer un autre message
@@ -763,7 +723,7 @@ export default function HomePage() {
                         name: contactName,
                         email: contactFormEmail,
                         message: contactMessage,
-                        captchaToken,
+                        honeypot: contactHoneypot,
                       }),
                     });
                     const data = await res.json();
@@ -780,6 +740,18 @@ export default function HomePage() {
                 }}
                 className="flex flex-col gap-4"
               >
+                {/* Honeypot anti-bot — caché aux humains */}
+                <div style={{ display: "none" }} aria-hidden="true">
+                  <input
+                    type="text"
+                    name="website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={contactHoneypot}
+                    onChange={e => setContactHoneypot(e.target.value)}
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-mono uppercase tracking-widest mb-1.5" style={{ color: theme.color_accent }}>Ton nom *</label>
@@ -824,20 +796,13 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* Turnstile CAPTCHA */}
-                {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-                  <div className="flex justify-center py-2">
-                    <div id="cf-turnstile-widget" />
-                  </div>
-                )}
-
                 {contactError && (
                   <p className="text-red-400 text-sm text-center">{contactError}</p>
                 )}
 
                 <button
                   type="submit"
-                  disabled={contactLoading || (!!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !captchaToken)}
+                  disabled={contactLoading}
                   className="flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-sm tracking-wider text-white transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ background: `linear-gradient(135deg, ${theme.color_accent}, ${theme.color_accent}bb)`, boxShadow: `0 0 24px ${theme.color_accent}44` }}
                 >
