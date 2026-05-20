@@ -46,6 +46,14 @@ export async function POST(req: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://toxic-files.com";
   const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
 
+  // Récupérer l'email de contact pour la mise en copie
+  const { data: siteSetting } = await db
+    .from("settings")
+    .select("value")
+    .eq("key", "site")
+    .single();
+  const ccEmail: string | undefined = siteSetting?.value?.contact_email || undefined;
+
   // Send in batches of 50 (Resend rate limit)
   const batchSize = 50;
   let sent = 0;
@@ -92,6 +100,23 @@ export async function POST(req: NextRequest) {
     body_html,
     recipient_count: sent,
   });
+
+  // Envoyer une copie récap à Lucas (email de contact du site)
+  if (ccEmail) {
+    const recapHtml = `
+<p style="margin:0 0 16px;padding:12px 16px;background:#1a001a;border-left:3px solid #b400ff;border-radius:4px;font-size:13px;color:#b400ff;">
+  📋 <strong>Copie admin</strong> — Cette newsletter a été envoyée à <strong>${sent}</strong> abonné${sent !== 1 ? "s" : ""}.
+  ${errors.length > 0 ? `<br><span style="color:#f59e0b;">${errors.length} erreur(s) d'envoi.</span>` : ""}
+</p>
+<hr style="border:none;border-top:1px solid #1a1a1a;margin:20px 0;" />
+${body_html}`;
+    await resend.emails.send({
+      from: fromEmail,
+      to: ccEmail,
+      subject: `[COPIE] ${subject}`,
+      html: wrapInTemplate(recapHtml),
+    }).catch(() => {}); // silencieux si échec
+  }
 
   return NextResponse.json({
     sent,
