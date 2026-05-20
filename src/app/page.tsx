@@ -32,7 +32,7 @@ const GRID_COLS_CLASS: Record<number, string> = {
   3: "grid-cols-2 lg:grid-cols-3",
   4: "grid-cols-2 lg:grid-cols-4",
 };
-import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package, Music2, BookOpen, Menu, X } from "lucide-react";
+import { Mail, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, ShoppingCart, User, Package, Music2, BookOpen, Menu, X, Mic2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { SocialIcon, type SocialsConfig } from "@/lib/socialIcons";
 import { PLATFORMS, PlatformIcon, type PlatformLink } from "@/lib/platforms";
@@ -405,6 +405,12 @@ export default function HomePage() {
               className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a]">
               <BookOpen size={20} style={{ color: theme.color_accent }} />
               <span className="font-bold text-white tracking-widest uppercase text-sm">Actus</span>
+            </Link>
+            <Link href="/sur-demande" onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-4 px-5 py-4 rounded-2xl border"
+              style={{ background: "#1a001a", borderColor: "#b400ff44" }}>
+              <Mic2 size={20} style={{ color: theme.color_accent }} />
+              <span className="font-bold tracking-widest uppercase text-sm" style={{ color: theme.color_accent }}>Beat sur mesure</span>
             </Link>
             <Link href="/mon-compte" onClick={() => setMenuOpen(false)}
               className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-[#111] border border-[#1a1a1a]">
@@ -911,6 +917,25 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* ===== BEAT SUR MESURE CTA ===== */}
+      <section className="py-20 px-4 border-t border-[#1a1a1a]">
+        <div className="max-w-3xl mx-auto text-center">
+          <p className="text-xs font-mono tracking-[0.4em] uppercase mb-3" style={{ color: theme.color_accent }}>◆ EXCLUSIF ◆</p>
+          <h2 className="text-4xl md:text-5xl font-black text-white mb-4">BEAT SUR MESURE</h2>
+          <p className="text-neutral-400 mb-8 leading-relaxed">
+            Tu veux un son unique, produit spécialement pour ton projet ?<br className="hidden sm:block" />
+            Décris-moi ta vision — je m&apos;occupe du reste.
+          </p>
+          <Link
+            href="/sur-demande"
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-xl font-bold tracking-wider text-white transition-all hover:scale-105"
+            style={{ background: `linear-gradient(135deg, ${theme.color_accent}, ${theme.color_accent}bb)`, boxShadow: `0 0 40px ${theme.color_accent}44` }}
+          >
+            <Mic2 size={18} /> Faire une demande
+          </Link>
+        </div>
+      </section>
 
       {/* ===== BLOG / ACTUS ===== */}
       {latestPosts.length > 0 && (
