@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2, Mail, BookOpen, Mic2 } from "lucide-react";
+import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2, Mail, BookOpen, Mic2, KeyRound } from "lucide-react";
 import type { Order } from "@/types";
 import BeatsManager from "@/components/admin/BeatsManager";
 import KitsManager from "@/components/admin/KitsManager";
@@ -19,6 +19,7 @@ import CreditsManager from "@/components/admin/CreditsManager";
 import NewsletterManager from "@/components/admin/NewsletterManager";
 import BlogManager from "@/components/admin/BlogManager";
 import BeatRequestsManager from "@/components/admin/BeatRequestsManager";
+import ChangePasswordManager from "@/components/admin/ChangePasswordManager";
 
 const ORDER_PAGE_SIZE = 10;
 
@@ -28,7 +29,7 @@ function getToken(): string | null {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"orders" | "beats" | "kits" | "bio" | "socials" | "payment" | "site" | "promos" | "credits" | "analytics" | "newsletter" | "blog" | "requests">("orders");
+  const [tab, setTab] = useState<"orders" | "beats" | "kits" | "bio" | "socials" | "payment" | "site" | "promos" | "credits" | "analytics" | "newsletter" | "blog" | "requests" | "password">("orders");
   const [orderSub, setOrderSub] = useState<"pending" | "paid" | "cancelled" | "deleted" | "archived">("pending");
   const [pendingPage, setPendingPage] = useState(1);
   const [paidPage, setPaidPage] = useState(1);
@@ -580,6 +581,7 @@ export default function AdminPage() {
             { id: "requests"   as const, label: "Sur demande", icon: <Mic2       size={14} />, badge: newRequestsBadge },
             { id: "analytics"  as const, label: "Analytics",   icon: <BarChart2  size={14} />, badge: 0 },
             { id: "site"     as const, label: "Site",        icon: <Globe      size={14} />, badge: 0 },
+            { id: "password" as const, label: "Mot de passe", icon: <KeyRound   size={14} />, badge: 0 },
           ].map((t) => (
             <button
               key={t.id}
@@ -642,6 +644,7 @@ export default function AdminPage() {
         {tab === "newsletter" && <NewsletterManager />}
         {tab === "blog"       && <BlogManager />}
         {tab === "requests"   && <BeatRequestsManager />}
+        {tab === "password"   && <ChangePasswordManager />}
         {tab === "site" && (
           <>
             <SiteManager />
