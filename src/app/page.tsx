@@ -308,6 +308,14 @@ export default function HomePage() {
               );
               return null;
             })}
+            {/* Lien Mon compte */}
+            <Link
+              href="/mon-compte"
+              className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
+            >
+              <User size={16} className="group-hover:scale-110 transition-transform flex-shrink-0 text-neutral-400 group-hover:text-white" />
+              <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Mon compte</span>
+            </Link>
           </div>
         </div>
       </div>

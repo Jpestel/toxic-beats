@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Trash2, ShoppingCart, CheckCircle, Loader2, Copy, RotateCcw, Tag, Check } from "lucide-react";
+import { X, Trash2, ShoppingCart, CheckCircle, Loader2, Copy, RotateCcw, Tag, Check, UserPlus, Eye, EyeOff } from "lucide-react";
 import type { CartItem, LicenseType } from "@/types";
 
 type PaymentMethod = {
@@ -96,6 +96,38 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
   const [promoInput, setPromoInput]   = useState("");
   const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
+
+  // Création de compte après commande
+  const [signupPassword, setSignupPassword] = useState("");
+  const [showSignupPwd, setShowSignupPwd]   = useState(false);
+  const [signupStatus, setSignupStatus]     = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [signupError, setSignupError]       = useState("");
+
+  const handleSignup = async () => {
+    if (!signupPassword || signupPassword.length < 6) {
+      setSignupError("Au moins 6 caractères");
+      return;
+    }
+    setSignupStatus("loading");
+    setSignupError("");
+    try {
+      const res = await fetch("/api/account/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: form.email, password: signupPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSignupError(data.error ?? "Erreur");
+        setSignupStatus("error");
+      } else {
+        setSignupStatus("success");
+      }
+    } catch {
+      setSignupError("Erreur réseau");
+      setSignupStatus("error");
+    }
+  };
 
   const rawTotal    = cart.reduce((s, item) => s + item.price, 0);
   const discount    = calcDiscount(promoResult, cart, rawTotal);
@@ -337,6 +369,57 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
       <p className="text-xs text-neutral-600 text-center mb-4">
         Envoie ta confirmation de paiement — ton lien de téléchargement t&apos;arrivera dès validation.
       </p>
+
+      {/* Bloc création de compte */}
+      {signupStatus === "success" ? (
+        <div className="flex items-center gap-3 bg-[#39ff1410] border border-[#39ff1430] rounded-xl px-4 py-3 mb-4">
+          <CheckCircle size={16} style={{ color: "#39ff14" }} />
+          <div>
+            <p className="text-sm font-bold text-white">Compte créé !</p>
+            <a href="/mon-compte" className="text-xs text-[#b400ff] hover:underline">
+              Accéder à mon espace →
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div className="border border-[#2a2a2a] rounded-xl p-4 mb-4 bg-[#0d0d0d]">
+          <div className="flex items-center gap-2 mb-3">
+            <UserPlus size={14} style={{ color: "#b400ff" }} />
+            <p className="text-xs font-bold text-white">Retrouve tes téléchargements à tout moment</p>
+          </div>
+          <p className="text-[11px] text-neutral-500 mb-3">
+            Crée un compte avec <span className="text-neutral-300">{form.email}</span> pour accéder à ton historique de commandes.
+          </p>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={showSignupPwd ? "text" : "password"}
+                value={signupPassword}
+                onChange={e => { setSignupPassword(e.target.value); setSignupError(""); }}
+                placeholder="Choisis un mot de passe"
+                className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2.5 pr-8 text-white text-xs focus:outline-none focus:border-[#b400ff] transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSignupPwd(v => !v)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors"
+              >
+                {showSignupPwd ? <EyeOff size={12} /> : <Eye size={12} />}
+              </button>
+            </div>
+            <button
+              onClick={handleSignup}
+              disabled={signupStatus === "loading"}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-black disabled:opacity-50 whitespace-nowrap"
+              style={{ background: "linear-gradient(135deg, #b400ff, #9000cc)" }}
+            >
+              {signupStatus === "loading" ? <Loader2 size={12} className="animate-spin" /> : "Créer"}
+            </button>
+          </div>
+          {signupError && <p className="text-red-400 text-[10px] mt-1.5">{signupError}</p>}
+          <p className="text-[10px] text-neutral-600 mt-2">Minimum 6 caractères</p>
+        </div>
+      )}
 
       <div className="flex gap-3">
         <button
