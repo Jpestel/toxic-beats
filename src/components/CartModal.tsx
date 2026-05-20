@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Trash2, ShoppingCart, CheckCircle, Loader2, Copy, RotateCcw } from "lucide-react";
+import { X, Trash2, ShoppingCart, CheckCircle, Loader2, Copy, RotateCcw, Tag, Check } from "lucide-react";
 import type { CartItem, LicenseType } from "@/types";
 
 type PaymentMethod = {
@@ -46,6 +46,42 @@ const LICENSE_COLORS: Record<LicenseType, string> = {
 const LS_KEY = "toxic_last_order";
 const ORDER_TTL = 48 * 60 * 60 * 1000;
 
+type PromoResult = {
+  valid: boolean;
+  code?: string;
+  type?: string;
+  value?: number;
+  description?: string;
+  error?: string;
+};
+
+function calcDiscount(promo: PromoResult | null, cart: CartItem[], total: number): number {
+  if (!promo?.valid || !promo.type) return 0;
+  switch (promo.type) {
+    case "percentage":
+      return Math.round(total * (promo.value ?? 0) / 100 * 100) / 100;
+    case "fixed":
+      return Math.min(total, promo.value ?? 0);
+    case "free_mp3": {
+      const item = cart.find(i => i.type === "beat" && i.licenseType === "mp3");
+      return item ? item.price : 0;
+    }
+    case "free_wav": {
+      const item = cart.find(i => i.type === "beat" && i.licenseType === "wav");
+      return item ? item.price : 0;
+    }
+    case "free_exclusive": {
+      const item = cart.find(i => i.type === "beat" && i.licenseType === "exclusive");
+      return item ? item.price : 0;
+    }
+    case "free_kit": {
+      const item = cart.find(i => i.type === "kit");
+      return item ? item.price : 0;
+    }
+    default: return 0;
+  }
+}
+
 export default function CartModal({ cart, onRemove, onClose, onClearCart }: Props) {
   const [form, setForm] = useState({ firstname: "", lastname: "", email: "" });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -54,13 +90,34 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [savedOrder, setSavedOrder] = useState<SavedOrder | null>(null);
-  // Mémoriser si le panier était vide à l'ouverture du modal.
-  // Si non (l'utilisateur gère activement son panier), on n'affiche pas
-  // la vue de récupération même quand il retire tous ses articles.
   const [initialCartEmpty] = useState(cart.length === 0);
 
-  const total = cart.reduce((s, item) => s + item.price, 0);
+  // Code promo
+  const [promoInput, setPromoInput]   = useState("");
+  const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  const rawTotal    = cart.reduce((s, item) => s + item.price, 0);
+  const discount    = calcDiscount(promoResult, cart, rawTotal);
+  const total       = Math.max(0, rawTotal - discount);
   const hasExclusive = cart.some((i) => i.type === "beat" && i.licenseType === "exclusive");
+
+  const applyPromo = async () => {
+    if (!promoInput.trim()) return;
+    setPromoLoading(true);
+    try {
+      const res = await fetch("/api/promo/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoInput.trim() }),
+      });
+      const data: PromoResult = await res.json();
+      setPromoResult(data);
+    } catch {
+      setPromoResult({ valid: false, error: "Erreur réseau" });
+    }
+    setPromoLoading(false);
+  };
 
   useEffect(() => {
     fetch("/api/settings/payment")
@@ -90,8 +147,15 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
     const unavailable: string[] = [];
     const ordered: CartItem[] = [];
 
+    // Répartit la remise proportionnellement sur les articles
+    const promoCode    = promoResult?.valid ? promoResult.code : undefined;
+    const totalDiscount = discount;
+
     await Promise.all(cart.map(async (item) => {
       const buyerName = `${form.firstname} ${form.lastname}`.trim();
+      const itemRatio = rawTotal > 0 ? item.price / rawTotal : 0;
+      const itemDiscount = Math.round(totalDiscount * itemRatio * 100) / 100;
+      const finalAmount = Math.max(0, item.price - itemDiscount);
 
       let body: Record<string, unknown>;
       if (item.type === "kit") {
@@ -101,7 +165,9 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
           beat_title: item.kit.title,
           buyer_name: buyerName,
           buyer_email: form.email,
-          amount: item.price,
+          amount: finalAmount,
+          promo_code: promoCode,
+          discount_amount: itemDiscount,
         };
       } else {
         body = {
@@ -110,8 +176,10 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
           beat_title: item.beat.title,
           buyer_name: buyerName,
           buyer_email: form.email,
-          amount: item.price,
+          amount: finalAmount,
           license_type: item.licenseType,
+          promo_code: promoCode,
+          discount_amount: itemDiscount,
         };
       }
 
@@ -406,10 +474,65 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                     })}
                   </div>
 
+                  {/* Code promo */}
+                  <div className="mb-4">
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Tag size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <input
+                          value={promoInput}
+                          onChange={e => {
+                            setPromoInput(e.target.value.toUpperCase());
+                            if (promoResult) setPromoResult(null);
+                          }}
+                          onKeyDown={e => e.key === "Enter" && (e.preventDefault(), applyPromo())}
+                          placeholder="CODE PROMO"
+                          className="w-full bg-[#1a1a1a] border rounded-xl pl-8 pr-3 py-2.5 text-white text-sm font-mono uppercase focus:outline-none transition-colors"
+                          style={{
+                            borderColor: promoResult?.valid ? "#39ff14" : promoResult?.valid === false ? "#ef4444" : "#2a2a2a",
+                          }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={applyPromo}
+                        disabled={promoLoading || !promoInput.trim()}
+                        className="px-4 py-2.5 rounded-xl text-xs font-bold text-black disabled:opacity-40 transition-all hover:scale-105"
+                        style={{ background: "linear-gradient(135deg, #b400ff, #9000cc)" }}
+                      >
+                        {promoLoading ? <Loader2 size={13} className="animate-spin" /> : "Appliquer"}
+                      </button>
+                    </div>
+                    {promoResult && (
+                      <p className={`text-xs mt-1.5 flex items-center gap-1 ${promoResult.valid ? "text-[#39ff14]" : "text-red-400"}`}>
+                        {promoResult.valid
+                          ? <><Check size={11} /> Code appliqué — {discount > 0 ? `-${discount}€` : "article offert"}</>
+                          : promoResult.error
+                        }
+                      </p>
+                    )}
+                  </div>
+
                   {/* Total */}
-                  <div className="flex items-center justify-between mb-5 px-1">
-                    <span className="text-neutral-400 text-sm font-mono uppercase tracking-widest">Total</span>
-                    <span className="text-2xl font-black text-white">{total}€</span>
+                  <div className="mb-5 px-1">
+                    {discount > 0 && (
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-neutral-500 text-xs font-mono uppercase tracking-widest">Sous-total</span>
+                        <span className="text-sm text-neutral-400 line-through">{rawTotal}€</span>
+                      </div>
+                    )}
+                    {discount > 0 && (
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-mono uppercase tracking-widest" style={{ color: "#39ff14" }}>
+                          Code {promoResult?.code}
+                        </span>
+                        <span className="text-sm font-bold" style={{ color: "#39ff14" }}>-{discount}€</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-neutral-400 text-sm font-mono uppercase tracking-widest">Total</span>
+                      <span className="text-2xl font-black text-white">{total}€</span>
+                    </div>
                   </div>
 
                   <div className="h-px bg-[#1a1a1a] mb-5" />
@@ -472,7 +595,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                     >
                       {status === "loading"
                         ? <Loader2 size={18} className="animate-spin" />
-                        : `Commander ${cart.length} article${cart.length > 1 ? "s" : ""} · ${total}€`
+                        : `Commander ${cart.length} article${cart.length > 1 ? "s" : ""} · ${total}€${discount > 0 ? ` (-${discount}€)` : ""}`
                       }
                     </button>
                   </form>

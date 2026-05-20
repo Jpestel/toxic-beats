@@ -30,7 +30,7 @@ function getAdminUrl(): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { beat_id, kit_id, beat_title, buyer_name, buyer_email, amount, license_type = "mp3", product_type = "beat" } = body;
+    const { beat_id, kit_id, beat_title, buyer_name, buyer_email, amount, license_type = "mp3", product_type = "beat", promo_code, discount_amount } = body;
 
     if (!buyer_name || !buyer_email || !amount) {
       return NextResponse.json({ error: "Champs manquants" }, { status: 400 });
@@ -53,9 +53,19 @@ export async function POST(req: NextRequest) {
         product_type: "kit",
         status: "pending",
         token_used: false,
+        promo_code: promo_code ?? null,
+        discount_amount: discount_amount ?? 0,
       });
 
       if (error) throw error;
+
+      // Incrémenter le compteur du code promo
+      if (promo_code) {
+        const { data: promoData } = await db.from("promo_codes").select("uses_count").eq("code", promo_code).single();
+        if (promoData) {
+          await db.from("promo_codes").update({ uses_count: promoData.uses_count + 1 }).eq("code", promo_code);
+        }
+      }
 
       // Notif admin
       const adminEmail = await getAdminEmail(db);
@@ -121,6 +131,8 @@ export async function POST(req: NextRequest) {
       product_type: "beat",
       status: "pending",
       token_used: false,
+      promo_code: promo_code ?? null,
+      discount_amount: discount_amount ?? 0,
     });
 
     if (error) {
@@ -128,6 +140,14 @@ export async function POST(req: NextRequest) {
         await db.from("beats").update({ status: "available" }).eq("id", beat_id);
       }
       throw error;
+    }
+
+    // Incrémenter le compteur du code promo
+    if (promo_code) {
+      const { data: promoData } = await db.from("promo_codes").select("uses_count").eq("code", promo_code).single();
+      if (promoData) {
+        await db.from("promo_codes").update({ uses_count: promoData.uses_count + 1 }).eq("code", promo_code);
+      }
     }
 
     // Notif admin
