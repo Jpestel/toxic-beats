@@ -123,6 +123,16 @@ export default function HomePage() {
   const [coverLibrary, setCoverLibrary] = useState<string[]>([]);
   const [credits, setCredits] = useState<Credit[]>([]);
   const [showBackTop, setShowBackTop] = useState(false);
+
+  // Formulaire de contact
+  const [contactName, setContactName] = useState("");
+  const [contactFormEmail, setContactFormEmail] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactLoading, setContactLoading] = useState(false);
+  const [contactSuccess, setContactSuccess] = useState(false);
+  const [contactError, setContactError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterLoading, setNewsletterLoading] = useState(false);
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "success" | "error" | "already">("idle");
@@ -140,6 +150,18 @@ export default function HomePage() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
+
+  // Callbacks Turnstile (CAPTCHA)
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).onTurnstileSuccess = (token: string) => setCaptchaToken(token);
+    (window as unknown as Record<string, unknown>).onTurnstileExpired = () => setCaptchaToken("");
+    (window as unknown as Record<string, unknown>).onTurnstileError = () => setCaptchaToken("");
+    return () => {
+      delete (window as unknown as Record<string, unknown>).onTurnstileSuccess;
+      delete (window as unknown as Record<string, unknown>).onTurnstileExpired;
+      delete (window as unknown as Record<string, unknown>).onTurnstileError;
+    };
+  }, []);
 
   // Injecter les CSS variables du thème
   useEffect(() => {
@@ -676,35 +698,144 @@ export default function HomePage() {
       {/* ===== CONTACT ===== */}
       {theme.show_contact && (
         <section id="contact" className="py-24 px-4 border-t border-[#1a1a1a]">
-          <div className="max-w-2xl mx-auto text-center">
-            <p className="text-xs font-mono tracking-[0.4em] uppercase mb-3" style={{ color: theme.color_accent }}>◆ ME CONTACTER ◆</p>
-            <h2 className="text-4xl font-black text-white mb-4">TRAVAILLONS ENSEMBLE</h2>
-            <p className="text-neutral-500 mb-10">
-              Pour une collaboration, une licence exclusive ou une question sur un beat — écris-moi.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10">
-              <a
-                href={`mailto:${contactEmail}`}
-                className="flex items-center gap-3 px-6 py-4 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
-              >
-                <Mail size={20} style={{ color: theme.color_accent }} />
-                <span className="text-neutral-300 group-hover:text-white transition-colors">{contactEmail}</span>
-              </a>
+          <div className="max-w-xl mx-auto">
+            <div className="text-center mb-10">
+              <p className="text-xs font-mono tracking-[0.4em] uppercase mb-3" style={{ color: theme.color_accent }}>◆ ME CONTACTER ◆</p>
+              <h2 className="text-4xl font-black text-white mb-4">TRAVAILLONS ENSEMBLE</h2>
+              <p className="text-neutral-500">
+                Pour une collaboration, une licence exclusive ou une question sur un beat — envoie-moi un message.
+              </p>
             </div>
 
-            {/* Réseaux sociaux dynamiques */}
+            {contactSuccess ? (
+              <div className="text-center py-12">
+                <div className="text-5xl mb-4">✅</div>
+                <p className="text-white font-bold text-lg mb-2">Message envoyé !</p>
+                <p className="text-neutral-500 text-sm">Je te répondrai dès que possible.</p>
+                <button
+                  onClick={() => { setContactSuccess(false); setContactName(""); setContactFormEmail(""); setContactMessage(""); setCaptchaToken(""); }}
+                  className="mt-6 text-xs font-mono tracking-widest uppercase text-neutral-500 hover:text-white transition-colors"
+                >
+                  Envoyer un autre message
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setContactLoading(true);
+                  setContactError("");
+                  try {
+                    const res = await fetch("/api/contact", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        name: contactName,
+                        email: contactFormEmail,
+                        message: contactMessage,
+                        captchaToken,
+                      }),
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      setContactSuccess(true);
+                    } else {
+                      setContactError(data.error || "Une erreur est survenue.");
+                    }
+                  } catch {
+                    setContactError("Impossible de contacter le serveur.");
+                  } finally {
+                    setContactLoading(false);
+                  }
+                }}
+                className="flex flex-col gap-4"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-widest mb-1.5" style={{ color: theme.color_accent }}>Ton nom *</label>
+                    <input
+                      type="text"
+                      required
+                      value={contactName}
+                      onChange={e => setContactName(e.target.value)}
+                      placeholder="Artiste / Rappeur"
+                      className="w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-colors placeholder-neutral-700"
+                      style={{ ["--tw-ring-color" as string]: theme.color_accent }}
+                      onFocus={e => (e.target.style.borderColor = theme.color_accent + "80")}
+                      onBlur={e => (e.target.style.borderColor = "#2a2a2a")}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-mono uppercase tracking-widest mb-1.5" style={{ color: theme.color_accent }}>Ton email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={contactFormEmail}
+                      onChange={e => setContactFormEmail(e.target.value)}
+                      placeholder="ton@email.com"
+                      className="w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-colors placeholder-neutral-700"
+                      onFocus={e => (e.target.style.borderColor = theme.color_accent + "80")}
+                      onBlur={e => (e.target.style.borderColor = "#2a2a2a")}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-widest mb-1.5" style={{ color: theme.color_accent }}>Message *</label>
+                  <textarea
+                    required
+                    rows={5}
+                    value={contactMessage}
+                    onChange={e => setContactMessage(e.target.value)}
+                    placeholder="Parle-moi de ton projet, du beat qui t'intéresse..."
+                    className="w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-colors placeholder-neutral-700 resize-none"
+                    onFocus={e => (e.target.style.borderColor = theme.color_accent + "80")}
+                    onBlur={e => (e.target.style.borderColor = "#2a2a2a")}
+                  />
+                </div>
+
+                {/* Turnstile CAPTCHA */}
+                {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                  <div className="flex justify-center">
+                    <div
+                      className="cf-turnstile"
+                      data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                      data-callback="onTurnstileSuccess"
+                      data-expired-callback="onTurnstileExpired"
+                      data-error-callback="onTurnstileError"
+                      data-theme="dark"
+                    />
+                  </div>
+                )}
+
+                {contactError && (
+                  <p className="text-red-400 text-sm text-center">{contactError}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={contactLoading || (!!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !captchaToken)}
+                  className="flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-sm tracking-wider text-white transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: `linear-gradient(135deg, ${theme.color_accent}, ${theme.color_accent}bb)`, boxShadow: `0 0 24px ${theme.color_accent}44` }}
+                >
+                  {contactLoading
+                    ? <><Loader2 size={16} className="animate-spin" /> Envoi en cours…</>
+                    : <><Mail size={16} /> Envoyer le message</>
+                  }
+                </button>
+              </form>
+            )}
+
+            {/* Réseaux sociaux */}
             {socials && (() => {
               const activePredefined = socials.predefined.filter(n => n.active && n.url);
               const activeCustom = socials.custom.filter(n => n.active && n.url && n.icon_url);
-              const all = [...activePredefined, ...activeCustom];
-              if (all.length === 0) return null;
+              if ([...activePredefined, ...activeCustom].length === 0) return null;
               return (
-                <div className="flex flex-wrap justify-center gap-3">
+                <div className="flex flex-wrap justify-center gap-3 mt-10 pt-10 border-t border-[#1a1a1a]">
                   {activePredefined.map(net => (
                     <a key={net.id} href={net.url} target="_blank" rel="noopener noreferrer"
-                      className="w-12 h-12 rounded-xl bg-[#111] border border-[#2a2a2a] flex items-center justify-center text-neutral-500 transition-all"
-                      style={{ ["--hover-color" as string]: theme.color_accent }}>
+                      className="w-12 h-12 rounded-xl bg-[#111] border border-[#2a2a2a] flex items-center justify-center text-neutral-500 transition-all hover:border-[#444] hover:text-white">
                       <SocialIcon id={net.id} size={20} />
                     </a>
                   ))}
