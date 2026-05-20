@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
       email: email.toLowerCase(),
       password,
       email_confirm: true,
+      user_metadata: { role: "customer" },
     });
 
     if (error) {

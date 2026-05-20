@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { LogIn, LogOut, Download, Clock, CheckCircle, Package, Music, Eye, EyeOff } from "lucide-react";
+import { LogIn, LogOut, Download, Clock, CheckCircle, Package, Music, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import type { Session } from "@supabase/supabase-js";
 
@@ -14,9 +14,6 @@ type Order = {
   amount: number;
   discount_amount: number | null;
   status: "pending" | "paid";
-  download_token: string | null;
-  token_expires_at: string | null;
-  token_used: boolean | null;
   created_at: string;
   beats?: { title: string; image_url: string | null } | null;
   kits?: { title: string; image_url: string | null } | null;
@@ -33,6 +30,7 @@ export default function MonComptePage() {
   const [loading, setLoading]   = useState(true);
   const [orders, setOrders]     = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [isAdmin, setIsAdmin]   = useState(false);
 
   // Login form
   const [email, setEmail]       = useState("");
@@ -55,16 +53,27 @@ export default function MonComptePage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Charge les commandes quand la session est disponible
+  // Charge les commandes + vérifie si admin quand la session est disponible
   useEffect(() => {
     if (!session) return;
+
     setOrdersLoading(true);
+
+    // Commandes
     fetch("/api/account/orders", {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then(r => r.json())
       .then(data => setOrders(data.orders ?? []))
       .finally(() => setOrdersLoading(false));
+
+    // Rôle admin
+    fetch("/api/auth/me", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then(r => r.json())
+      .then(data => setIsAdmin(data.isAdmin === true));
+
   }, [session]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -82,15 +91,15 @@ export default function MonComptePage() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setOrders([]);
-  };
-
-  const isTokenValid = (order: Order) => {
-    if (!order.download_token || !order.token_expires_at) return false;
-    return new Date(order.token_expires_at) > new Date();
+    setIsAdmin(false);
   };
 
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
+  // Construit l'URL de téléchargement authentifiée (permanente)
+  const dlUrl = (orderId: string, file: "mp3" | "wav" | "zip") =>
+    `/api/account/download/${orderId}?file=${file}`;
 
   if (loading) {
     return (
@@ -107,15 +116,27 @@ export default function MonComptePage() {
         <Link href="/" className="text-xl font-black tracking-widest text-white hover:text-[#b400ff] transition-colors">
           ← RETOUR
         </Link>
-        {session && (
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors"
-          >
-            <LogOut size={14} />
-            Déconnexion
-          </button>
-        )}
+        <div className="flex items-center gap-4">
+          {session && isAdmin && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-lg transition-colors"
+              style={{ background: "#b400ff20", color: "#b400ff" }}
+            >
+              <ShieldCheck size={14} />
+              Admin
+            </Link>
+          )}
+          {session && (
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-sm text-neutral-400 hover:text-white transition-colors"
+            >
+              <LogOut size={14} />
+              Déconnexion
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-6 py-12">
@@ -185,6 +206,11 @@ export default function MonComptePage() {
             <div className="mb-8">
               <p className="text-xs text-neutral-500 font-mono uppercase tracking-widest mb-1">Connecté en tant que</p>
               <h1 className="text-xl font-black text-white">{session.user.email}</h1>
+              {isAdmin && (
+                <p className="text-xs text-[#b400ff] font-mono mt-1 flex items-center gap-1">
+                  <ShieldCheck size={11} /> Compte administrateur
+                </p>
+              )}
             </div>
 
             <h2 className="text-sm font-mono uppercase tracking-widest text-neutral-400 mb-4">
@@ -209,12 +235,6 @@ export default function MonComptePage() {
                   const cover = order.product_type === "kit"
                     ? order.kits?.image_url
                     : order.beats?.image_url;
-                  const tokenOk = isTokenValid(order);
-                  const licenseTypes = order.license_type
-                    ? (["mp3", "wav", "exclusive"].includes(order.license_type)
-                        ? [order.license_type]
-                        : [order.license_type])
-                    : [];
 
                   return (
                     <div
@@ -256,39 +276,17 @@ export default function MonComptePage() {
                       {/* Prix + Téléchargement */}
                       <div className="text-right flex-shrink-0">
                         <p className="text-white font-bold text-sm mb-2">{order.amount}€</p>
-                        {order.status === "paid" && order.download_token && (
-                          tokenOk ? (
-                            <div className="flex flex-col gap-1">
-                              <a
-                                href={`/api/download/${order.download_token}?file=mp3`}
-                                className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-lg transition-colors"
-                                style={{ background: "#b400ff20", color: "#b400ff" }}
-                              >
-                                <Download size={10} /> MP3
-                              </a>
-                              {(order.license_type === "wav" || order.license_type === "exclusive") && (
-                                <a
-                                  href={`/api/download/${order.download_token}?file=wav`}
-                                  className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-lg transition-colors"
-                                  style={{ background: "#00f5ff20", color: "#00f5ff" }}
-                                >
-                                  <Download size={10} /> WAV
-                                </a>
-                              )}
-                              {(order.license_type === "exclusive" || order.product_type === "kit") && (
-                                <a
-                                  href={`/api/download/${order.download_token}?file=zip`}
-                                  className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-lg transition-colors"
-                                  style={{ background: "#f59e0b20", color: "#f59e0b" }}
-                                >
-                                  <Download size={10} /> ZIP
-                                </a>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-[10px] text-neutral-600 font-mono">Lien expiré</span>
-                          )
+
+                        {order.status === "paid" && (
+                          <DownloadButtons
+                            orderId={order.id}
+                            licenseType={order.license_type}
+                            productType={order.product_type}
+                            accessToken={session.access_token}
+                            dlUrl={dlUrl}
+                          />
                         )}
+
                         {order.status === "pending" && (
                           <span className="text-[10px] text-neutral-600 font-mono">En attente</span>
                         )}
@@ -301,6 +299,90 @@ export default function MonComptePage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Composant boutons de téléchargement — fait la requête avec le Bearer token
+function DownloadButtons({
+  orderId,
+  licenseType,
+  productType,
+  accessToken,
+  dlUrl,
+}: {
+  orderId: string;
+  licenseType: string | null;
+  productType: "beat" | "kit";
+  accessToken: string;
+  dlUrl: (id: string, file: "mp3" | "wav" | "zip") => string;
+}) {
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const handleDownload = async (file: "mp3" | "wav" | "zip") => {
+    setDownloading(file);
+    try {
+      const res = await fetch(dlUrl(orderId, file), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error ?? "Erreur lors du téléchargement");
+        return;
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const filename = match ? decodeURIComponent(match[1]) : `download.${file}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const hasWav = licenseType === "wav" || licenseType === "exclusive";
+  const hasZip = licenseType === "exclusive" || productType === "kit";
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        onClick={() => handleDownload("mp3")}
+        disabled={!!downloading}
+        className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+        style={{ background: "#b400ff20", color: "#b400ff" }}
+      >
+        <Download size={10} />
+        {downloading === "mp3" ? "..." : "MP3"}
+      </button>
+
+      {hasWav && (
+        <button
+          onClick={() => handleDownload("wav")}
+          disabled={!!downloading}
+          className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+          style={{ background: "#00f5ff20", color: "#00f5ff" }}
+        >
+          <Download size={10} />
+          {downloading === "wav" ? "..." : "WAV"}
+        </button>
+      )}
+
+      {hasZip && (
+        <button
+          onClick={() => handleDownload("zip")}
+          disabled={!!downloading}
+          className="flex items-center gap-1 text-[10px] font-mono px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
+          style={{ background: "#f59e0b20", color: "#f59e0b" }}
+        >
+          <Download size={10} />
+          {downloading === "zip" ? "..." : "ZIP"}
+        </button>
+      )}
     </div>
   );
 }
