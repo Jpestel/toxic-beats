@@ -79,4 +79,5 @@ export type Order = {
   downloaded_at?: string[] | null;
   archived_at?: string | null;
   created_at: string;
+  has_account?: boolean;
 };

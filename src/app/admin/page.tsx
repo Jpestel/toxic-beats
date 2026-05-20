@@ -1093,6 +1093,18 @@ function OrderRow({
           {order.notes && (
             <p className="text-xs text-neutral-500 mt-1 italic">{order.notes}</p>
           )}
+
+          {/* Notice compte client */}
+          {order.has_account && order.status === "paid" && (
+            <div className="mt-2 flex items-start gap-2 text-[11px] leading-relaxed px-2.5 py-2 rounded-lg"
+              style={{ background: "#39ff1408", border: "1px solid #39ff1425", color: "#39ff14cc" }}>
+              <span className="flex-shrink-0 mt-px">👤</span>
+              <span>
+                Cet acheteur a un compte — il peut télécharger directement depuis son espace.
+                Tu peux tout de même lui envoyer les fichiers par email en cas de besoin.
+              </span>
+            </div>
+          )}
         </div>
       </div>
 

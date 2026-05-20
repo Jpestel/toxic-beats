@@ -188,10 +188,20 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
+    // Récupère les emails des acheteurs ayant un compte client (role: customer)
+    const { data: usersData } = await db.auth.admin.listUsers({ perPage: 1000 });
+    const customerEmails = new Set(
+      (usersData?.users ?? [])
+        .filter(u => u.user_metadata?.role === "customer")
+        .map(u => u.email?.toLowerCase())
+        .filter(Boolean)
+    );
+
     const flat = (data ?? []).map(({ beats, ...order }) => ({
       ...order,
       // beats peut être null si beat_id est null (commande kit)
       preview_url: (beats as { preview_url?: string } | null)?.preview_url ?? order.preview_url ?? null,
+      has_account: customerEmails.has(order.buyer_email?.toLowerCase()),
     }));
     return NextResponse.json(flat);
   } catch (err) {
