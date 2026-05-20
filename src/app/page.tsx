@@ -796,14 +796,14 @@ export default function HomePage() {
 
                 {/* Turnstile CAPTCHA */}
                 {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-                  <div className="flex justify-center">
+                  <div className="flex justify-center py-2">
                     <div
                       className="cf-turnstile"
                       data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
                       data-callback="onTurnstileSuccess"
                       data-expired-callback="onTurnstileExpired"
                       data-error-callback="onTurnstileError"
-                      data-theme="dark"
+                      data-theme="light"
                     />
                   </div>
                 )}
