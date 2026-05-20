@@ -138,6 +138,8 @@ export default function HomePage() {
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "success" | "error" | "already">("idle");
   const [newsletterError, setNewsletterError] = useState("");
   const bannerImgRef = useRef<HTMLImageElement>(null);
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetId = useRef<string | null>(null);
 
   const handleScroll = useCallback(() => {
     setShowBackTop(window.scrollY > 300);
@@ -151,15 +153,52 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
-  // Callbacks Turnstile (CAPTCHA)
+  // Turnstile CAPTCHA — rendu explicite
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).onTurnstileSuccess = (token: string) => setCaptchaToken(token);
-    (window as unknown as Record<string, unknown>).onTurnstileExpired = () => setCaptchaToken("");
-    (window as unknown as Record<string, unknown>).onTurnstileError = () => setCaptchaToken("");
+    const sitekey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    if (!sitekey) return;
+
+    const renderWidget = () => {
+      if (!turnstileContainerRef.current) return;
+      // Éviter le double-rendu
+      if (turnstileWidgetId.current !== null) return;
+      turnstileWidgetId.current = (window as unknown as Record<string, { render: (el: HTMLElement, opts: object) => string }>).turnstile.render(
+        turnstileContainerRef.current,
+        {
+          sitekey,
+          theme: "light",
+          callback: (token: string) => setCaptchaToken(token),
+          "expired-callback": () => setCaptchaToken(""),
+          "error-callback": () => setCaptchaToken(""),
+        }
+      );
+    };
+
+    if ((window as unknown as Record<string, unknown>).turnstile) {
+      renderWidget();
+    } else if (!document.getElementById("cf-turnstile-script")) {
+      const script = document.createElement("script");
+      script.id = "cf-turnstile-script";
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.onload = renderWidget;
+      document.head.appendChild(script);
+    } else {
+      // Script déjà injecté mais pas encore chargé — attendre
+      const interval = setInterval(() => {
+        if ((window as unknown as Record<string, unknown>).turnstile) {
+          clearInterval(interval);
+          renderWidget();
+        }
+      }, 100);
+      return () => clearInterval(interval);
+    }
+
     return () => {
-      delete (window as unknown as Record<string, unknown>).onTurnstileSuccess;
-      delete (window as unknown as Record<string, unknown>).onTurnstileExpired;
-      delete (window as unknown as Record<string, unknown>).onTurnstileError;
+      if (turnstileWidgetId.current !== null && (window as unknown as Record<string, { remove: (id: string) => void }>).turnstile) {
+        (window as unknown as Record<string, { remove: (id: string) => void }>).turnstile.remove(turnstileWidgetId.current);
+        turnstileWidgetId.current = null;
+      }
     };
   }, []);
 
@@ -794,17 +833,10 @@ export default function HomePage() {
                   />
                 </div>
 
-                {/* Turnstile CAPTCHA */}
+                {/* Turnstile CAPTCHA — rendu explicite */}
                 {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
                   <div className="flex justify-center py-2">
-                    <div
-                      className="cf-turnstile"
-                      data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-                      data-callback="onTurnstileSuccess"
-                      data-expired-callback="onTurnstileExpired"
-                      data-error-callback="onTurnstileError"
-                      data-theme="light"
-                    />
+                    <div ref={turnstileContainerRef} />
                   </div>
                 )}
 
