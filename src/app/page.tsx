@@ -256,13 +256,13 @@ export default function HomePage() {
           </Link>
 
           {/* Actions — ordre défini par nav_order */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             {(theme.nav_order ?? ["beats", "kits", "about", "contact"]).map((id) => {
               if (id === "beats") return (
                 <button
                   key="beats"
                   onClick={() => cart.length > 0 ? setShowCart(true) : window.location.assign("#beats")}
-                  className="relative flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
+                  className="relative flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
                 >
                   <ShoppingCart size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent }} />
                   <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">
@@ -280,7 +280,7 @@ export default function HomePage() {
                 <a
                   key="kits"
                   href="#kits"
-                  className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
+                  className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
                 >
                   <Package size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent2 }} />
                   <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Kits</span>
@@ -290,7 +290,7 @@ export default function HomePage() {
                 <a
                   key="about"
                   href="#about"
-                  className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
+                  className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
                 >
                   <User size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent2 }} />
                   <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">À propos</span>
@@ -300,7 +300,7 @@ export default function HomePage() {
                 <a
                   key="contact"
                   href="#contact"
-                  className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
+                  className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
                 >
                   <Mail size={16} className="group-hover:scale-110 transition-transform flex-shrink-0" style={{ color: theme.color_accent3 }} />
                   <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Contact</span>
@@ -311,7 +311,7 @@ export default function HomePage() {
             {/* Lien Mon compte */}
             <Link
               href="/mon-compte"
-              className="flex items-center justify-center gap-2 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
+              className="flex items-center justify-center gap-2 w-9 h-9 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-xl bg-[#111] border border-[#2a2a2a] transition-all group"
             >
               <User size={16} className="group-hover:scale-110 transition-transform flex-shrink-0 text-neutral-400 group-hover:text-white" />
               <span className="text-xs font-mono tracking-widest text-neutral-400 group-hover:text-white transition-colors uppercase hidden sm:block">Mon compte</span>
@@ -624,10 +624,13 @@ export default function HomePage() {
       )}
 
       {/* ===== FOOTER ===== */}
-      <footer className="border-t border-[#1a1a1a] py-8 px-4 text-center">
+      <footer className="border-t border-[#1a1a1a] py-8 px-4 text-center space-y-2">
         <p className="text-neutral-700 text-sm font-mono">
           © {new Date().getFullYear()} TOXIC — Tous droits réservés
         </p>
+        <Link href="/mentions-legales" className="text-neutral-600 hover:text-neutral-400 text-xs font-mono transition-colors">
+          Mentions légales
+        </Link>
       </footer>
 
       </> /* fin du bloc conditionnel contenu */}
