@@ -28,7 +28,7 @@ export default function RootLayout({
         {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-            strategy="lazyOnload"
+            strategy="afterInteractive"
           />
         )}
       </body>
