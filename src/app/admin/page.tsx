@@ -29,7 +29,10 @@ function getToken(): string | null {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"orders" | "beats" | "kits" | "bio" | "socials" | "payment" | "site" | "promos" | "credits" | "analytics" | "newsletter" | "blog" | "requests" | "password">("orders");
+  const [tab, setTab] = useState<"orders" | "catalogue" | "profil" | "contenu" | "payment" | "site" | "promos" | "analytics" | "requests" | "password">("orders");
+  const [catalogueSub, setCatalogueSub] = useState<"beats" | "kits">("beats");
+  const [profilSub, setProfilSub]       = useState<"bio" | "socials" | "credits">("bio");
+  const [contenuSub, setContenuSub]     = useState<"newsletter" | "blog">("newsletter");
   const [orderSub, setOrderSub] = useState<"pending" | "paid" | "cancelled" | "deleted" | "archived">("pending");
   const [pendingPage, setPendingPage] = useState(1);
   const [paidPage, setPaidPage] = useState(1);
@@ -537,10 +540,16 @@ export default function AdminPage() {
     <div className="min-h-screen bg-[#080808]">
       {/* Header */}
       <div className="border-b border-[#1a1a1a] bg-[#0d0d0d] px-4 py-3 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-black text-white">TOXIC</span>
-          <span className="text-[#b400ff] font-mono text-xs tracking-widest">/ ADMIN</span>
-          <span className="text-xs text-neutral-600 hidden md:block">· {user.email}</span>
+        <div className="flex items-center gap-3">
+          <a href="/" className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white transition-colors px-2.5 py-2 rounded-lg bg-[#1a1a1a]">
+            <Globe size={13} />
+            <span className="hidden sm:inline">← Site</span>
+          </a>
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-black text-white">TOXIC</span>
+            <span className="text-[#b400ff] font-mono text-xs tracking-widest">/ ADMIN</span>
+            <span className="text-xs text-neutral-600 hidden md:block">· {user.email}</span>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {tab === "orders" && (
@@ -568,24 +577,20 @@ export default function AdminPage() {
       <div className="border-b border-[#1a1a1a] bg-[#0d0d0d] overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         <div className="flex gap-0 min-w-max px-2">
           {[
-            { id: "orders"  as const, label: "Commandes", icon: <ShoppingBag size={14} />, badge: pending.length },
-            { id: "beats"   as const, label: "Beats",    icon: <Music size={14} />,        badge: 0 },
-            { id: "kits"    as const, label: "Kits",     icon: <Package size={14} />,      badge: 0 },
-            { id: "bio"     as const, label: "Bio",      icon: <UserCircle size={14} />,   badge: 0 },
-            { id: "socials" as const, label: "Réseaux",  icon: <Share2 size={14} />,       badge: 0 },
-            { id: "payment" as const, label: "Paiement", icon: <CreditCard size={14} />,   badge: 0 },
-            { id: "promos"   as const, label: "Promos",      icon: <Tag    size={14} />,        badge: 0 },
-            { id: "credits"    as const, label: "Productions", icon: <Music2     size={14} />, badge: 0 },
-            { id: "newsletter" as const, label: "Newsletter",  icon: <Mail       size={14} />, badge: 0 },
-            { id: "blog"       as const, label: "Blog",        icon: <BookOpen   size={14} />, badge: 0 },
-            { id: "requests"   as const, label: "Sur demande", icon: <Mic2       size={14} />, badge: newRequestsBadge },
-            { id: "analytics"  as const, label: "Analytics",   icon: <BarChart2  size={14} />, badge: 0 },
-            { id: "site"     as const, label: "Site",        icon: <Globe      size={14} />, badge: 0 },
-            { id: "password" as const, label: "Mot de passe", icon: <KeyRound   size={14} />, badge: 0 },
+            { id: "orders"    as const, label: "Commandes",  icon: <ShoppingBag size={14} />, badge: pending.length },
+            { id: "catalogue" as const, label: "Catalogue",  icon: <Music       size={14} />, badge: 0 },
+            { id: "requests"  as const, label: "Sur demande",icon: <Mic2        size={14} />, badge: newRequestsBadge },
+            { id: "profil"    as const, label: "Profil",     icon: <UserCircle  size={14} />, badge: 0 },
+            { id: "contenu"   as const, label: "Contenu",    icon: <BookOpen    size={14} />, badge: 0 },
+            { id: "payment"   as const, label: "Paiement",   icon: <CreditCard  size={14} />, badge: 0 },
+            { id: "promos"    as const, label: "Promos",     icon: <Tag         size={14} />, badge: 0 },
+            { id: "analytics" as const, label: "Analytics",  icon: <BarChart2   size={14} />, badge: 0 },
+            { id: "site"      as const, label: "Site",       icon: <Globe       size={14} />, badge: 0 },
+            { id: "password"  as const, label: "Compte",     icon: <KeyRound    size={14} />, badge: 0 },
           ].map((t) => (
             <button
               key={t.id}
-              onClick={() => { setTab(t.id); if (t.id === "requests") setNewRequestsBadge(0); }}
+              onClick={() => { setTab(t.id as typeof tab); if (t.id === "requests") setNewRequestsBadge(0); }}
               className="flex items-center gap-1.5 px-3 py-3 text-xs font-mono tracking-widest uppercase transition-all border-b-2 -mb-px whitespace-nowrap"
               style={tab === t.id
                 ? { color: "#b400ff", borderColor: "#b400ff" }
@@ -634,17 +639,57 @@ export default function AdminPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-8">
 
-        {tab === "beats"     && <BeatsManager />}
-        {tab === "kits"      && <KitsManager />}
-        {tab === "bio"       && <BioManager />}
-        {tab === "socials"   && <SocialManager />}
-        {tab === "payment"   && <PaymentManager />}
-        {tab === "promos"     && <PromoManager />}
-        {tab === "credits"    && <CreditsManager />}
-        {tab === "newsletter" && <NewsletterManager />}
-        {tab === "blog"       && <BlogManager />}
-        {tab === "requests"   && <BeatRequestsManager />}
-        {tab === "password"   && <ChangePasswordManager />}
+        {/* ── Catalogue : Beats + Kits ── */}
+        {tab === "catalogue" && (
+          <>
+            <SubTabs
+              tabs={[{ id: "beats", label: "Beats", icon: <Music size={13} /> }, { id: "kits", label: "Kits", icon: <Package size={13} /> }]}
+              active={catalogueSub}
+              onChange={v => setCatalogueSub(v as "beats" | "kits")}
+            />
+            {catalogueSub === "beats" && <BeatsManager />}
+            {catalogueSub === "kits"  && <KitsManager />}
+          </>
+        )}
+
+        {/* ── Profil : Bio + Réseaux + Productions ── */}
+        {tab === "profil" && (
+          <>
+            <SubTabs
+              tabs={[
+                { id: "bio",     label: "Bio",         icon: <UserCircle size={13} /> },
+                { id: "socials", label: "Réseaux",     icon: <Share2     size={13} /> },
+                { id: "credits", label: "Productions", icon: <Music2     size={13} /> },
+              ]}
+              active={profilSub}
+              onChange={v => setProfilSub(v as "bio" | "socials" | "credits")}
+            />
+            {profilSub === "bio"     && <BioManager />}
+            {profilSub === "socials" && <SocialManager />}
+            {profilSub === "credits" && <CreditsManager />}
+          </>
+        )}
+
+        {/* ── Contenu : Newsletter + Blog ── */}
+        {tab === "contenu" && (
+          <>
+            <SubTabs
+              tabs={[
+                { id: "newsletter", label: "Newsletter", icon: <Mail     size={13} /> },
+                { id: "blog",       label: "Blog",       icon: <BookOpen size={13} /> },
+              ]}
+              active={contenuSub}
+              onChange={v => setContenuSub(v as "newsletter" | "blog")}
+            />
+            {contenuSub === "newsletter" && <NewsletterManager />}
+            {contenuSub === "blog"       && <BlogManager />}
+          </>
+        )}
+
+        {tab === "payment"  && <PaymentManager />}
+        {tab === "promos"   && <PromoManager />}
+        {tab === "requests" && <BeatRequestsManager />}
+        {tab === "password" && <ChangePasswordManager />}
         {tab === "site" && (
           <>
             <SiteManager />
@@ -1425,6 +1470,30 @@ function ArchivedMonthBlock({
 /* ──────────────────────────────────────────────────────── */
 /* Composant StorageBadge                                   */
 /* ──────────────────────────────────────────────────────── */
+
+function SubTabs({ tabs, active, onChange }: {
+  tabs: { id: string; label: string; icon: React.ReactNode }[];
+  active: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div className="flex gap-1 mb-6 p-1 rounded-xl bg-[#0d0d0d] border border-[#1a1a1a] w-fit">
+      {tabs.map(t => (
+        <button
+          key={t.id}
+          onClick={() => onChange(t.id)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono tracking-widest uppercase transition-all"
+          style={active === t.id
+            ? { background: "#b400ff", color: "#fff" }
+            : { color: "#555" }
+          }
+        >
+          {t.icon}{t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function fmtBytes(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
