@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     const batch = subscribers.slice(i, i + batchSize);
     const results = await Promise.allSettled(
       batch.map((sub) => {
-        const unsubUrl = `${siteUrl}/newsletter/unsubscribe?token=${sub.unsubscribe_token}`;
+        const unsubUrl = `${siteUrl}/api/newsletter/unsubscribe?token=${sub.unsubscribe_token}`;
         const htmlWithFooter = `${body_html}
 <br><br>
 <table width="100%" cellpadding="0" cellspacing="0">
