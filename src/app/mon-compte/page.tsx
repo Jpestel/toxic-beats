@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LogIn, LogOut, Download, Clock, CheckCircle, Package, Music, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { LogIn, LogOut, Download, Clock, CheckCircle, Package, Music, Eye, EyeOff, ShieldCheck, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 type Session = { token: string; email: string } | null;
@@ -38,6 +38,12 @@ export default function MonComptePage() {
   const [showPwd, setShowPwd]   = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+
+  // Mot de passe oublié
+  const [forgotMode, setForgotMode]       = useState(false);
+  const [forgotEmail, setForgotEmail]     = useState("");
+  const [forgotStatus, setForgotStatus]   = useState<"idle" | "loading" | "sent">("idle");
+  const [forgotError, setForgotError]     = useState("");
 
   // Récupère la session au chargement
   useEffect(() => {
@@ -95,6 +101,22 @@ export default function MonComptePage() {
       setLoginError("Erreur réseau.");
     }
     setLoginLoading(false);
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError("");
+    setForgotStatus("loading");
+    try {
+      await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setForgotStatus("sent");
+    } catch {
+      setForgotError("Erreur réseau."); setForgotStatus("idle");
+    }
   };
 
   const handleLogout = () => {
@@ -206,7 +228,67 @@ export default function MonComptePage() {
               >
                 {loginLoading ? "Connexion..." : "Se connecter"}
               </button>
+
+              <p className="text-center">
+                <button
+                  type="button"
+                  onClick={() => { setForgotMode(true); setForgotEmail(email); setForgotStatus("idle"); setForgotError(""); }}
+                  className="text-xs text-neutral-600 hover:text-[#b400ff] transition-colors"
+                >
+                  Mot de passe oublié ?
+                </button>
+              </p>
             </form>
+
+            {/* ── Formulaire mot de passe oublié ── */}
+            {forgotMode && (
+              <div className="mt-6 p-4 rounded-2xl border border-[#2a2a2a] bg-[#0d0d0d]">
+                {forgotStatus === "sent" ? (
+                  <div className="text-center py-2">
+                    <CheckCircle size={32} className="mx-auto mb-3" style={{ color: "#39ff14" }} />
+                    <p className="text-white font-bold text-sm mb-1">Email envoyé !</p>
+                    <p className="text-neutral-500 text-xs">Si ce compte existe, tu vas recevoir un lien valable 1h.</p>
+                    <button
+                      type="button"
+                      onClick={() => setForgotMode(false)}
+                      className="mt-3 text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+                    >
+                      ← Retour à la connexion
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgot} className="space-y-3">
+                    <p className="text-xs text-neutral-400 uppercase tracking-widest mb-2">Réinitialiser le mot de passe</p>
+                    <input
+                      type="email"
+                      required
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      placeholder="ton@email.com"
+                      className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#b400ff] transition-colors"
+                    />
+                    {forgotError && <p className="text-red-400 text-xs">{forgotError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setForgotMode(false)}
+                        className="flex-1 h-10 rounded-xl text-sm text-neutral-400 border border-[#2a2a2a] hover:border-[#3a3a3a] transition-colors"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={forgotStatus === "loading"}
+                        className="flex-1 h-10 rounded-xl font-bold text-sm text-black disabled:opacity-60 flex items-center justify-center gap-2 transition-all"
+                        style={{ background: "linear-gradient(135deg, #b400ff, #9000cc)" }}
+                      >
+                        {forgotStatus === "loading" ? <><Loader2 size={13} className="animate-spin" />Envoi…</> : "Envoyer"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
           </div>
         )}
 
