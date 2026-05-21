@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const orderIds: string[] = [];
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+    const lineItems: { price_data: { currency: string; product_data: { name: string }; unit_amount: number }; quantity: number }[] = [];
 
     for (const item of items) {
       const orderId = randomUUID();
