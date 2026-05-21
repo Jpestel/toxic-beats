@@ -635,7 +635,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                   </div>
 
                   {/* Total */}
-                  <div className="mb-5 px-1">
+                  <div className="mb-3 px-1">
                     {discount > 0 && (
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-neutral-500 text-xs font-mono uppercase tracking-widest">Sous-total</span>
@@ -656,7 +656,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                     </div>
                   </div>
 
-                  <div className="h-px bg-[#1a1a1a] mb-5" />
+                  <div className="h-px bg-[#1a1a1a] mb-3" />
 
                   {/* Avertissement réservation (uniquement si licence exclusive dans le panier) */}
                   {hasExclusive && (
@@ -667,29 +667,25 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                       </span>
                     </div>
                   )}
-                  <div className="text-xs text-neutral-500 bg-[#1a1a1a] rounded-lg p-3 mb-4 leading-relaxed">
-                    Remplis ce formulaire et effectue le paiement. Dès validation, tes fichiers seront disponibles dans ton espace personnel (si tu crées un compte) ou envoyés par email.
-                  </div>
-
-                  <form onSubmit={handleSubmit} className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                  <form onSubmit={handleSubmit} className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2.5">
                       <div>
-                        <label className="block text-xs text-neutral-400 mb-1.5 tracking-widest uppercase">Prénom</label>
+                        <label className="block text-xs text-neutral-400 mb-1 tracking-widest uppercase">Prénom</label>
                         <input
                           required
                           value={form.firstname}
                           onChange={(e) => setForm((f) => ({ ...f, firstname: e.target.value }))}
-                          className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#b400ff] transition-colors"
+                          className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#b400ff] transition-colors"
                           placeholder="Prénom"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-neutral-400 mb-1.5 tracking-widest uppercase">Nom</label>
+                        <label className="block text-xs text-neutral-400 mb-1 tracking-widest uppercase">Nom</label>
                         <input
                           required
                           value={form.lastname}
                           onChange={(e) => setForm((f) => ({ ...f, lastname: e.target.value }))}
-                          className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#b400ff] transition-colors"
+                          className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#b400ff] transition-colors"
                           placeholder="NOM"
                         />
                       </div>
@@ -701,7 +697,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                         required
                         value={form.email}
                         onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#b400ff] transition-colors"
+                        className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-[#b400ff] transition-colors"
                         placeholder="ton@email.com"
                       />
                     </div>
