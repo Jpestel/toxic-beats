@@ -49,7 +49,17 @@ export async function POST(req: NextRequest) {
       quantity: 1,
     }));
 
-    // Email de confirmation (non bloquant)
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      customer_email: buyer_email,
+      line_items: lineItems,
+      metadata: { order_ids: orders.map(o => o.id).join(",") },
+      success_url: `${siteUrl}/checkout/success`,
+      cancel_url:  `${siteUrl}/checkout/cancel`,
+    });
+
+    // Email de confirmation avec lien Stripe (non bloquant)
     const beatTitles = orders.map(o => {
       if (o.product_type === "kit") return `${o.beat_title} (Kit)`;
       const labels: Record<string, string> = { mp3: "MP3", wav: "MP3 + WAV", exclusive: "ZIP Exclusif" };
@@ -65,17 +75,8 @@ export async function POST(req: NextRequest) {
     sendOrderConfirmationEmail({
       buyerName, buyerEmail: buyer_email, beatTitles, total,
       hasExclusive, paymentMethods, siteUrl, contactEmail: contactEmail ?? "contact@toxic-beats.fr",
+      stripeUrl: session.url ?? undefined,
     }).catch(console.error);
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      customer_email: buyer_email,
-      line_items: lineItems,
-      metadata: { order_ids: orders.map(o => o.id).join(",") },
-      success_url: `${siteUrl}/checkout/success`,
-      cancel_url:  `${siteUrl}/checkout/cancel`,
-    });
 
     return NextResponse.json({ url: session.url });
   } catch (err) {

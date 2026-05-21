@@ -25,6 +25,7 @@ type OrderEmailParams = {
   paymentMethods: PaymentMethod[];
   siteUrl: string;
   contactEmail: string;
+  stripeUrl?: string;     // URL de la session Stripe si paiement par carte disponible
 };
 
 function buildOrderEmailHtml(p: OrderEmailParams): string {
@@ -100,13 +101,30 @@ function buildOrderEmailHtml(p: OrderEmailParams): string {
                 </div>
               </div>
 
-              <!-- Moyens de paiement -->
+              <!-- Bouton Stripe si disponible -->
+              ${p.stripeUrl ? `
+              <div style="margin-bottom:16px;text-align:center;">
+                <a href="${p.stripeUrl}" style="display:inline-block;background:linear-gradient(135deg,#635bff,#4f46e5);color:#ffffff;text-decoration:none;font-weight:bold;font-size:14px;padding:14px 28px;border-radius:12px;letter-spacing:0.5px;">
+                  💳 Payer par carte maintenant
+                </a>
+              </div>
+              ` : ""}
+
+              <!-- Moyens de paiement manuels -->
+              ${p.paymentMethods.filter(m => m.active).length > 0 ? `
               <div style="margin-bottom:20px;">
-                <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">Comment payer</div>
+                <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px;">${p.stripeUrl ? "Ou payer autrement" : "Comment payer"}</div>
                 <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;">
-                  ${methodsHtml || `<tr><td style="padding:16px;color:#666;text-align:center;font-size:13px;">Contacte-nous pour recevoir les informations de paiement.</td></tr>`}
+                  ${methodsHtml}
                 </table>
               </div>
+              ` : p.stripeUrl ? "" : `
+              <div style="margin-bottom:20px;">
+                <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;">
+                  <tr><td style="padding:16px;color:#666;text-align:center;font-size:13px;">Contacte-nous pour recevoir les informations de paiement.</td></tr>
+                </table>
+              </div>
+              `}
 
               <!-- Note exclusive -->
               ${exclusiveNote}

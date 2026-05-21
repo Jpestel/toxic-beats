@@ -92,23 +92,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Email de confirmation de commande (non bloquant)
-    const beatTitles = items.map((item: { product_type: string; beat_title: string; license_type?: string }) => {
-      if (item.product_type === "kit") return `${item.beat_title} (Kit)`;
-      const labels: Record<string, string> = { mp3: "MP3", wav: "MP3 + WAV", exclusive: "ZIP Exclusif" };
-      return `${item.beat_title} (${labels[item.license_type ?? ""] ?? item.license_type})`;
-    });
-    const cartTotal = items.reduce((s: number, i: { amount: number }) => s + Number(i.amount), 0);
-    const hasExclusive = items.some((i: { product_type: string; license_type?: string }) => i.product_type === "beat" && i.license_type === "exclusive");
-    const [paymentRaw, contactEmail] = await Promise.all([getSetting("payment_config"), getSetting("contact_email")]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let paymentMethods: any[] = [];
-    try { paymentMethods = (JSON.parse(paymentRaw ?? "{}").methods ?? []).filter((m: { active: boolean; value: string }) => m.active && m.value); } catch { /* ignore */ }
-    sendOrderConfirmationEmail({
-      buyerName: buyer_name, buyerEmail: buyer_email, beatTitles, total: cartTotal,
-      hasExclusive, paymentMethods, siteUrl, contactEmail: contactEmail ?? "contact@toxic-beats.fr",
-    }).catch(console.error);
-
     // Incrémente le compteur du code promo
     if (promo_code) {
       await pool.execute(
@@ -126,6 +109,24 @@ export async function POST(req: NextRequest) {
       success_url: `${siteUrl}/checkout/success`,
       cancel_url: `${siteUrl}/checkout/cancel`,
     });
+
+    // Email de confirmation avec lien Stripe (non bloquant)
+    const beatTitles = items.map((item: { product_type: string; beat_title: string; license_type?: string }) => {
+      if (item.product_type === "kit") return `${item.beat_title} (Kit)`;
+      const labels: Record<string, string> = { mp3: "MP3", wav: "MP3 + WAV", exclusive: "ZIP Exclusif" };
+      return `${item.beat_title} (${labels[item.license_type ?? ""] ?? item.license_type})`;
+    });
+    const cartTotal = items.reduce((s: number, i: { amount: number }) => s + Number(i.amount), 0);
+    const hasExclusive = items.some((i: { product_type: string; license_type?: string }) => i.product_type === "beat" && i.license_type === "exclusive");
+    const [paymentRaw, contactEmail] = await Promise.all([getSetting("payment_config"), getSetting("contact_email")]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let paymentMethods: any[] = [];
+    try { paymentMethods = (JSON.parse(paymentRaw ?? "{}").methods ?? []).filter((m: { active: boolean; value: string }) => m.active && m.value); } catch { /* ignore */ }
+    sendOrderConfirmationEmail({
+      buyerName: buyer_name, buyerEmail: buyer_email, beatTitles, total: cartTotal,
+      hasExclusive, paymentMethods, siteUrl, contactEmail: contactEmail ?? "contact@toxic-beats.fr",
+      stripeUrl: session.url ?? undefined,
+    }).catch(console.error);
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
