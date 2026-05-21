@@ -59,7 +59,8 @@ export async function POST(req: NextRequest) {
     const hasExclusive = orders.some(o => o.product_type === "beat" && o.license_type === "exclusive");
     const buyerName = orders[0]?.buyer_name ?? buyer_email;
     const [paymentRaw, contactEmail] = await Promise.all([getSetting("payment_config"), getSetting("contact_email")]);
-    let paymentMethods: { id: string; type: string; label: string; value: string; active: boolean }[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let paymentMethods: any[] = [];
     try { paymentMethods = (JSON.parse(paymentRaw ?? "{}").methods ?? []).filter((m: { active: boolean; value: string }) => m.active && m.value); } catch { /* ignore */ }
     sendOrderConfirmationEmail({
       buyerName, buyerEmail: buyer_email, beatTitles, total,

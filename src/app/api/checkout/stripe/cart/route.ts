@@ -101,7 +101,8 @@ export async function POST(req: NextRequest) {
     const cartTotal = items.reduce((s: number, i: { amount: number }) => s + Number(i.amount), 0);
     const hasExclusive = items.some((i: { product_type: string; license_type?: string }) => i.product_type === "beat" && i.license_type === "exclusive");
     const [paymentRaw, contactEmail] = await Promise.all([getSetting("payment_config"), getSetting("contact_email")]);
-    let paymentMethods: { id: string; type: string; label: string; value: string; active: boolean }[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let paymentMethods: any[] = [];
     try { paymentMethods = (JSON.parse(paymentRaw ?? "{}").methods ?? []).filter((m: { active: boolean; value: string }) => m.active && m.value); } catch { /* ignore */ }
     sendOrderConfirmationEmail({
       buyerName: buyer_name, buyerEmail: buyer_email, beatTitles, total: cartTotal,
