@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { queryAll } from "@/lib/db";
+import { queryAll, getSetting } from "@/lib/db";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 
 const LICENSE_LABELS: Record<string, string> = {
   mp3: "Licence MP3",
@@ -25,9 +26,9 @@ export async function POST(req: NextRequest) {
     const placeholders = order_ids.map(() => "?").join(",");
     const orders = await queryAll<{
       id: string; beat_title: string; amount: number;
-      license_type: string; product_type: string;
+      license_type: string; product_type: string; buyer_name: string;
     }>(
-      `SELECT id, beat_title, amount, license_type, product_type FROM orders WHERE id IN (${placeholders}) AND status = 'pending'`,
+      `SELECT id, beat_title, amount, license_type, product_type, buyer_name FROM orders WHERE id IN (${placeholders}) AND status = 'pending'`,
       order_ids,
     );
 
@@ -47,6 +48,23 @@ export async function POST(req: NextRequest) {
       },
       quantity: 1,
     }));
+
+    // Email de confirmation (non bloquant)
+    const beatTitles = orders.map(o => {
+      if (o.product_type === "kit") return `${o.beat_title} (Kit)`;
+      const labels: Record<string, string> = { mp3: "MP3", wav: "MP3 + WAV", exclusive: "ZIP Exclusif" };
+      return `${o.beat_title} (${labels[o.license_type] ?? o.license_type})`;
+    });
+    const total = orders.reduce((s, o) => s + Number(o.amount), 0);
+    const hasExclusive = orders.some(o => o.product_type === "beat" && o.license_type === "exclusive");
+    const buyerName = orders[0]?.buyer_name ?? buyer_email;
+    const [paymentRaw, contactEmail] = await Promise.all([getSetting("payment_config"), getSetting("contact_email")]);
+    let paymentMethods: { id: string; type: string; label: string; value: string; active: boolean }[] = [];
+    try { paymentMethods = (JSON.parse(paymentRaw ?? "{}").methods ?? []).filter((m: { active: boolean; value: string }) => m.active && m.value); } catch { /* ignore */ }
+    sendOrderConfirmationEmail({
+      buyerName, buyerEmail: buyer_email, beatTitles, total,
+      hasExclusive, paymentMethods, siteUrl, contactEmail: contactEmail ?? "contact@toxic-beats.fr",
+    }).catch(console.error);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

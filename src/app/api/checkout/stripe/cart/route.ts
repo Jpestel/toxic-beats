@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import pool, { execute } from "@/lib/db";
+import pool, { execute, getSetting } from "@/lib/db";
+import { sendOrderConfirmationEmail } from "@/lib/email";
 import { randomUUID } from "crypto";
 
 const LICENSE_LABELS: Record<string, string> = {
@@ -90,6 +91,22 @@ export async function POST(req: NextRequest) {
         });
       }
     }
+
+    // Email de confirmation de commande (non bloquant)
+    const beatTitles = items.map((item: { product_type: string; beat_title: string; license_type?: string }) => {
+      if (item.product_type === "kit") return `${item.beat_title} (Kit)`;
+      const labels: Record<string, string> = { mp3: "MP3", wav: "MP3 + WAV", exclusive: "ZIP Exclusif" };
+      return `${item.beat_title} (${labels[item.license_type ?? ""] ?? item.license_type})`;
+    });
+    const cartTotal = items.reduce((s: number, i: { amount: number }) => s + Number(i.amount), 0);
+    const hasExclusive = items.some((i: { product_type: string; license_type?: string }) => i.product_type === "beat" && i.license_type === "exclusive");
+    const [paymentRaw, contactEmail] = await Promise.all([getSetting("payment_config"), getSetting("contact_email")]);
+    let paymentMethods: { id: string; type: string; label: string; value: string; active: boolean }[] = [];
+    try { paymentMethods = (JSON.parse(paymentRaw ?? "{}").methods ?? []).filter((m: { active: boolean; value: string }) => m.active && m.value); } catch { /* ignore */ }
+    sendOrderConfirmationEmail({
+      buyerName: buyer_name, buyerEmail: buyer_email, beatTitles, total: cartTotal,
+      hasExclusive, paymentMethods, siteUrl, contactEmail: contactEmail ?? "contact@toxic-beats.fr",
+    }).catch(console.error);
 
     // Incrémente le compteur du code promo
     if (promo_code) {

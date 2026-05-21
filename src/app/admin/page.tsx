@@ -780,7 +780,7 @@ export default function AdminPage() {
                 { label: "Total commandes", value: orders.length,                                  color: "#b400ff" },
                 { label: "En attente",       value: pending.length,                                color: "#f59e0b" },
                 { label: "Payées",           value: paid.length + archived.length,                                   color: "#39ff14" },
-                { label: "CA total",         value: `${[...paid, ...archived].reduce((s, o) => s + o.amount, 0)}€`, color: "#00f5ff" },
+                { label: "CA total",         value: `${[...paid, ...archived].reduce((s, o) => s + Number(o.amount), 0).toFixed(2)}€`, color: "#00f5ff" },
               ].map((s) => (
                 <div key={s.label} className="bg-[#111] border border-[#2a2a2a] rounded-xl p-4">
                   <p className="text-xs text-neutral-500 uppercase tracking-widest mb-1">{s.label}</p>
@@ -910,7 +910,7 @@ export default function AdminPage() {
                               selected={selectedIds.has(order.id)}
                               onToggleSelect={() => toggleSelect(order.id)}
                               onConfirm={() => {}}
-                              onCancel={() => {}}
+                              onCancel={() => cancelOrder(order.id)}
                               onRestore={() => {}}
                               onRevert={() => revertToPending(order.id)}
                               onSendFiles={() => sendFiles(order.id)}
