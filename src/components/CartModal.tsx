@@ -729,17 +729,26 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                       </div>
                     )}
 
-                    <button
-                      type="submit"
-                      disabled={status === "loading" || !formValid}
-                      className="w-full h-12 rounded-xl font-bold text-sm tracking-wider text-black flex items-center justify-center gap-2 disabled:opacity-60 transition-all hover:scale-[1.01]"
-                      style={{ background: "linear-gradient(135deg, #b400ff, #9000cc)", boxShadow: "0 0 20px rgba(180,0,255,0.4)" }}
-                    >
-                      {status === "loading"
-                        ? <Loader2 size={18} className="animate-spin" />
-                        : `Commander ${cart.length} article${cart.length > 1 ? "s" : ""} · ${total}€${discount > 0 ? ` (-${discount}€)` : ""}`
-                      }
-                    </button>
+                    <div>
+                      <button
+                        type="submit"
+                        disabled={status === "loading" || !formValid}
+                        className="w-full h-12 rounded-xl font-bold text-sm tracking-wider text-black flex items-center justify-center gap-2 disabled:opacity-60 transition-all hover:scale-[1.01]"
+                        style={{ background: "linear-gradient(135deg, #b400ff, #9000cc)", boxShadow: "0 0 20px rgba(180,0,255,0.4)" }}
+                      >
+                        {status === "loading"
+                          ? <Loader2 size={18} className="animate-spin" />
+                          : stripeEnabled
+                            ? `Autre moyen de paiement · ${total}€`
+                            : `Commander ${cart.length} article${cart.length > 1 ? "s" : ""} · ${total}€${discount > 0 ? ` (-${discount}€)` : ""}`
+                        }
+                      </button>
+                      {stripeEnabled && paymentMethods.length > 0 && (
+                        <p className="text-[10px] text-neutral-600 text-center mt-1.5">
+                          {paymentMethods.map(m => m.label).join(" · ")}
+                        </p>
+                      )}
+                    </div>
                   </form>
                 </>
               )}
