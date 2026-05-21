@@ -1067,9 +1067,15 @@ export default function HomePage() {
         <p className="text-neutral-700 text-sm font-mono">
           © {new Date().getFullYear()} TOXIC — Tous droits réservés
         </p>
-        <Link href="/mentions-legales" className="text-neutral-600 hover:text-neutral-400 text-xs font-mono transition-colors">
-          Mentions légales
-        </Link>
+        <div className="flex items-center justify-center gap-4">
+          <Link href="/mentions-legales" className="text-neutral-600 hover:text-neutral-400 text-xs font-mono transition-colors">
+            Mentions légales
+          </Link>
+          <span className="text-neutral-700 text-xs">·</span>
+          <Link href="/cgv" className="text-neutral-600 hover:text-neutral-400 text-xs font-mono transition-colors">
+            CGV
+          </Link>
+        </div>
       </footer>
 
       </> /* fin du bloc conditionnel contenu */}
