@@ -103,6 +103,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
   const [signupStatus, setSignupStatus]     = useState<"idle" | "loading" | "success" | "error">("idle");
   const [signupError, setSignupError]       = useState("");
   const [stripeEnabled, setStripeEnabled]   = useState(false);
+  const [createdOrderIds, setCreatedOrderIds] = useState<string[]>([]);
 
   const handleSignup = async () => {
     if (!signupPassword || signupPassword.length < 6) {
@@ -213,6 +214,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
 
     const unavailable: string[] = [];
     const ordered: CartItem[] = [];
+    const allOrderIds: string[] = [];
 
     // Répartit la remise proportionnellement sur les articles
     const promoCode    = promoResult?.valid ? promoResult.code : undefined;
@@ -255,6 +257,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      const resData = await res.json();
 
       const itemTitle = item.type === "kit" ? item.kit.title : item.beat.title;
 
@@ -262,6 +265,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
         unavailable.push(itemTitle);
       } else if (res.ok) {
         ordered.push(item);
+        if (resData.id) allOrderIds.push(resData.id);
       } else {
         throw new Error("server");
       }
@@ -307,8 +311,24 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
     localStorage.setItem(LS_KEY, JSON.stringify(orderData));
     setSavedOrder(orderData);
     setConfirmedTotal(successTotal);
+    setCreatedOrderIds(allOrderIds);
     setStatus("success");
     onClearCart();
+  };
+
+  const handlePayByStripe = async () => {
+    try {
+      const res = await fetch("/api/checkout/stripe/pay-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_ids: createdOrderIds, buyer_email: form.email }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Erreur");
+      window.location.href = data.url;
+    } catch (err: unknown) {
+      console.error("[pay-by-stripe]", err);
+    }
   };
 
   const copyValue = (id: string, value: string) => {
@@ -388,8 +408,26 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
           ))}
         </div>
       ) : (
-        <div className="text-xs text-neutral-500 bg-[#1a1a1a] rounded-lg p-3 mb-6 text-center">
+        <div className="text-xs text-neutral-500 bg-[#1a1a1a] rounded-lg p-3 mb-4 text-center">
           Contacte-nous pour recevoir les informations de paiement.
+        </div>
+      )}
+
+      {stripeEnabled && createdOrderIds.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex-1 h-px bg-[#2a2a2a]" />
+            <span className="text-xs text-neutral-600 font-mono">ou paye par carte</span>
+            <div className="flex-1 h-px bg-[#2a2a2a]" />
+          </div>
+          <button
+            onClick={handlePayByStripe}
+            className="w-full h-11 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
+            style={{ background: "linear-gradient(135deg, #635bff, #4f46e5)", boxShadow: "0 0 20px rgba(99,91,255,0.35)" }}
+          >
+            <CreditCard size={16} />
+            Payer par carte maintenant
+          </button>
         </div>
       )}
 

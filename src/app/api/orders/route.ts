@@ -27,13 +27,14 @@ export async function POST(req: NextRequest) {
     if (product_type === "kit") {
       if (!kit_id) return NextResponse.json({ error: "kit_id manquant" }, { status: 400 });
 
+      const orderId = randomUUID();
       await execute(
         `INSERT INTO orders
            (id, kit_id, beat_title, buyer_name, buyer_email, amount,
             product_type, status, token_used, promo_code, discount_amount)
          VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
         [
-          randomUUID(), kit_id, beat_title, buyer_name, buyer_email, amount,
+          orderId, kit_id, beat_title, buyer_name, buyer_email, amount,
           "kit", "pending", 0,
           promo_code ?? null, discount_amount ?? 0,
         ],
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
         }).catch(console.error);
       }
 
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, id: orderId });
     }
 
     // ── Beat ──────────────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const orderId = randomUUID();
     try {
       await execute(
         `INSERT INTO orders
@@ -92,7 +94,7 @@ export async function POST(req: NextRequest) {
             license_type, product_type, status, token_used, promo_code, discount_amount)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
-          randomUUID(), beat_id, beat_title, buyer_name, buyer_email, amount,
+          orderId, beat_id, beat_title, buyer_name, buyer_email, amount,
           license_type, "beat", "pending", 0,
           promo_code ?? null, discount_amount ?? 0,
         ],
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
       }).catch(console.error);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id: orderId });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
