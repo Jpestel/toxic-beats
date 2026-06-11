@@ -555,11 +555,17 @@ function FileSlot({
   );
 }
 
-/** Lecteur audio pour un fichier local (avant upload) */
-function LocalFileAudio({ file, accent = "#b400ff" }: { file: File; accent?: string }) {
+/** Lecteur audio pour un fichier local — joue uniquement l'intervalle [start, start+duration] */
+function LocalFileAudio({ file, accent = "#b400ff", start = 0, duration }: {
+  file: File;
+  accent?: string;
+  start?: number;
+  duration?: number;
+}) {
   const [url, setUrl] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const u = URL.createObjectURL(file);
@@ -568,11 +574,30 @@ function LocalFileAudio({ file, accent = "#b400ff" }: { file: File; accent?: str
     return () => URL.revokeObjectURL(u);
   }, [file]);
 
+  // Nettoyage du timer à l'unmount
+  useEffect(() => () => { if (stopTimer.current) clearTimeout(stopTimer.current); }, []);
+
+  const stop = () => {
+    audioRef.current?.pause();
+    if (stopTimer.current) clearTimeout(stopTimer.current);
+    setPlaying(false);
+  };
+
   const toggle = () => {
     if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); } else { audioRef.current.play(); }
-    setPlaying(!playing);
+    if (playing) {
+      stop();
+    } else {
+      audioRef.current.currentTime = start;
+      audioRef.current.play();
+      setPlaying(true);
+      if (duration) {
+        stopTimer.current = setTimeout(stop, duration * 1000);
+      }
+    }
   };
+
+  const fmtS = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
   if (!url) return null;
   return (
@@ -583,7 +608,11 @@ function LocalFileAudio({ file, accent = "#b400ff" }: { file: File; accent?: str
         {playing ? <Pause size={14} /> : <Play size={14} />}
       </button>
       <div className="flex-1 min-w-0">
-        <p className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase mb-0.5">Aperçu local</p>
+        <p className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase mb-0.5">
+          {duration
+            ? `Écouter l'extrait · ${fmtS(start)} → ${fmtS(start + duration)} (${duration}s)`
+            : "Aperçu local"}
+        </p>
         <p className="text-xs text-neutral-400 truncate font-mono">{file.name}</p>
       </div>
       <audio ref={audioRef} src={url} onEnded={() => setPlaying(false)} className="hidden" />
@@ -1120,7 +1149,7 @@ function EditBeatForm({ beat, genres, onSaved, onCancel }: {
               className="hidden" onChange={(e) => setNewFullFile(e.target.files?.[0] ?? null)} />
             {newFullFile && (
               <div className="mt-2">
-                <LocalFileAudio file={newFullFile} accent="#b400ff" />
+                <LocalFileAudio file={newFullFile} accent="#b400ff" start={trimStart} duration={trimDuration} />
               </div>
             )}
             {!newFullFile && beat.preview_url && (
@@ -1512,7 +1541,7 @@ function AddBeatForm({ genres, onAdded }: { genres: GenreConfig[]; onAdded: () =
               onChange={(e) => setFullFile(e.target.files?.[0] ?? null)} />
             {fullFile && (
               <div className="mt-2">
-                <LocalFileAudio file={fullFile} accent="#b400ff" />
+                <LocalFileAudio file={fullFile} accent="#b400ff" start={trimStart} duration={trimDuration} />
               </div>
             )}
           </div>
