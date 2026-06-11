@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Music, Upload, Loader2, CheckCircle, X, Scissors, BadgeCheck, Pencil, FileCheck, RotateCcw, RefreshCw, Eye, EyeOff, FileAudio, FileArchive, ImageIcon } from "lucide-react";
+import { Plus, Trash2, Music, Upload, Loader2, CheckCircle, X, Scissors, BadgeCheck, Pencil, FileCheck, RotateCcw, RefreshCw, Eye, EyeOff, FileAudio, FileArchive, ImageIcon, Play, Pause } from "lucide-react";
 import CoverPicker, { type CoverPickerResult } from "./CoverPicker";
 import Pagination from "./Pagination";
 import { trimAudioToWav } from "@/lib/trimAudio";
@@ -555,6 +555,42 @@ function FileSlot({
   );
 }
 
+/** Lecteur audio pour un fichier local (avant upload) */
+function LocalFileAudio({ file, accent = "#b400ff" }: { file: File; accent?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    setPlaying(false);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) { audioRef.current.pause(); } else { audioRef.current.play(); }
+    setPlaying(!playing);
+  };
+
+  if (!url) return null;
+  return (
+    <div className="flex items-center gap-3 bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-3 py-2">
+      <button type="button" onClick={toggle}
+        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+        style={{ background: `${accent}20`, border: `1px solid ${accent}40`, color: accent }}>
+        {playing ? <Pause size={14} /> : <Play size={14} />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase mb-0.5">Aperçu local</p>
+        <p className="text-xs text-neutral-400 truncate font-mono">{file.name}</p>
+      </div>
+      <audio ref={audioRef} src={url} onEnded={() => setPlaying(false)} className="hidden" />
+    </div>
+  );
+}
+
 /** Formate un nombre de secondes en "m:ss" */
 function fmtTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -1083,6 +1119,17 @@ function EditBeatForm({ beat, genres, onSaved, onCancel }: {
             <input ref={fullRef} type="file" accept=".mp3,.wav,.aiff,.m4a,.aac,.flac,audio/*"
               className="hidden" onChange={(e) => setNewFullFile(e.target.files?.[0] ?? null)} />
             {newFullFile && (
+              <div className="mt-2">
+                <LocalFileAudio file={newFullFile} accent="#b400ff" />
+              </div>
+            )}
+            {!newFullFile && beat.preview_url && (
+              <div className="mt-2">
+                <p className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase mb-1">Extrait actuel</p>
+                <audio src={beat.preview_url} controls className="w-full h-8" />
+              </div>
+            )}
+            {newFullFile && (
               <PreviewTrimmer
                 file={newFullFile}
                 start={trimStart}
@@ -1463,6 +1510,11 @@ function AddBeatForm({ genres, onAdded }: { genres: GenreConfig[]; onAdded: () =
               accept=".mp3,.aac,.m4a,audio/*"
               className="hidden"
               onChange={(e) => setFullFile(e.target.files?.[0] ?? null)} />
+            {fullFile && (
+              <div className="mt-2">
+                <LocalFileAudio file={fullFile} accent="#b400ff" />
+              </div>
+            )}
           </div>
 
           {/* Fichier WAV haute qualité */}

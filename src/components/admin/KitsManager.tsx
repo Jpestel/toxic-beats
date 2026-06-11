@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, Package, Upload, Loader2, X, Pencil, Eye, EyeOff, FileArchive } from "lucide-react";
+import { Plus, Trash2, Package, Upload, Loader2, X, Pencil, Eye, EyeOff, FileArchive, Play, Pause } from "lucide-react";
 import type { Kit } from "@/types";
 
 function getToken(): string | null {
@@ -334,6 +334,41 @@ function KitRow({ kit, onEdit, onDelete, onToggleStatus }: {
   );
 }
 
+function LocalFileAudio({ file }: { file: File }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    setPlaying(false);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) { audioRef.current.pause(); } else { audioRef.current.play(); }
+    setPlaying(!playing);
+  };
+
+  if (!url) return null;
+  return (
+    <div className="flex items-center gap-3 bg-[#0d0d0d] border border-[#2a2a2a] rounded-xl px-3 py-2 mt-2">
+      <button type="button" onClick={toggle}
+        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+        style={{ background: "#f59e0b20", border: "1px solid #f59e0b40", color: "#f59e0b" }}>
+        {playing ? <Pause size={14} /> : <Play size={14} />}
+      </button>
+      <div className="flex-1 min-w-0">
+        <p className="text-[9px] font-mono tracking-widest text-neutral-600 uppercase mb-0.5">Aperçu local</p>
+        <p className="text-xs text-neutral-400 truncate font-mono">{file.name}</p>
+      </div>
+      <audio ref={audioRef} src={url} onEnded={() => setPlaying(false)} className="hidden" />
+    </div>
+  );
+}
+
 function KitForm({ kit, onSaved, onCancel }: {
   kit?: Kit;
   onSaved: () => void;
@@ -604,6 +639,7 @@ function KitForm({ kit, onSaved, onCancel }: {
             )}
             {uploadStateIcon(previewUploadState)}
           </div>
+          {previewFile && <LocalFileAudio file={previewFile} />}
         </div>
 
         {/* Upload ZIP */}
