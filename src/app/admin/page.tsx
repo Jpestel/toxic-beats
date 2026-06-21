@@ -22,6 +22,7 @@ import BeatRequestsManager from "@/components/admin/BeatRequestsManager";
 import ChangePasswordManager from "@/components/admin/ChangePasswordManager";
 
 const ORDER_PAGE_SIZE = 10;
+const TOXIC_ANALYTICS_URL = "https://stats.toxic-files.com/share/toxic-files/toxic-files.com";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -686,18 +687,18 @@ export default function AdminPage() {
               <p className="text-xs text-[#555] mt-0.5 font-mono">Statistiques de trafic — Umami self-hosted</p>
             </div>
             <a
-              href="https://stats.toxic-files.com"
+              href={TOXIC_ANALYTICS_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-mono tracking-widest uppercase transition-all"
               style={{ background: "#b400ff18", border: "1px solid #b400ff44", color: "#b400ff" }}
             >
               <BarChart2 size={12} />
-              Ouvrir Umami
+              Ouvrir les stats
             </a>
           </div>
           <iframe
-            src="https://stats.toxic-files.com"
+            src={TOXIC_ANALYTICS_URL}
             className="w-full flex-1"
             style={{ background: "#0d0d0d", border: "none" }}
             title="Umami Analytics"
