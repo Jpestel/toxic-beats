@@ -22,7 +22,8 @@ import BeatRequestsManager from "@/components/admin/BeatRequestsManager";
 import ChangePasswordManager from "@/components/admin/ChangePasswordManager";
 
 const ORDER_PAGE_SIZE = 10;
-const TOXIC_ANALYTICS_URL = "https://stats.toxic-files.com/share/toxic-files/toxic-files.com";
+const TOXIC_ANALYTICS_URL =
+  "https://stats.toxic-files.com/websites/f1ac4e7f-9689-46d9-9c28-92dc98f9a353";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
