@@ -350,7 +350,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
   const blockOutsideClose = isSuccess || showRecovery;
   const activeMethods = isSuccess ? paymentMethods : (savedOrder?.paymentMethods ?? []);
 
-  const SuccessContent = ({ orderTotal, titles, hasExcl }: { orderTotal: number; titles: string[]; hasExcl?: boolean }) => (
+  const successContent = ({ orderTotal, titles, hasExcl }: { orderTotal: number; titles: string[]; hasExcl?: boolean }) => (
     <div className="py-6 px-6">
       <div className="text-center mb-6">
         <CheckCircle size={48} className="mx-auto mb-4 text-[#39ff14]"
@@ -536,7 +536,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
         </div>
 
         <div className="max-h-[75vh] overflow-y-auto">
-          {isSuccess && <SuccessContent orderTotal={confirmedTotal} titles={savedOrder?.beatTitles ?? []} hasExcl={savedOrder?.hasExclusive} />}
+          {isSuccess && successContent({ orderTotal: confirmedTotal, titles: savedOrder?.beatTitles ?? [], hasExcl: savedOrder?.hasExclusive })}
 
           {showRecovery && (
             <div>
@@ -546,7 +546,7 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                 </div>
                 <p className="text-neutral-500 text-xs">Tu as une commande non finalisée. Voici les infos de paiement.</p>
               </div>
-              <SuccessContent orderTotal={savedOrder!.total} titles={savedOrder!.beatTitles} hasExcl={savedOrder!.hasExclusive} />
+              {successContent({ orderTotal: savedOrder!.total, titles: savedOrder!.beatTitles, hasExcl: savedOrder!.hasExclusive })}
             </div>
           )}
 
