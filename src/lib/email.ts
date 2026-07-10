@@ -165,6 +165,7 @@ type DownloadEmailParams = {
   downloadPageUrl: string; // URL de la page /download/TOKEN (unique CTA)
   contactEmail: string;
   siteUrl: string;
+  hasAccount?: boolean;
 };
 
 function buildDownloadEmailHtml(p: DownloadEmailParams): string {
@@ -232,6 +233,18 @@ function buildDownloadEmailHtml(p: DownloadEmailParams): string {
                   Un problème ? Contacte-nous à <a href="mailto:${p.contactEmail}" style="color:${accentColor};">${p.contactEmail}</a>
                 </p>
               </div>
+
+              ${!p.hasAccount ? `
+              <div style="margin-top:16px;background:#b400ff0d;border:1px solid #b400ff30;border-radius:10px;padding:14px 16px;">
+                <p style="margin:0 0 8px;font-size:13px;color:#e0e0e0;line-height:1.5;">
+                  👤 <strong style="color:#fff;">Crée ton compte</strong> pour retrouver toutes tes commandes en un seul endroit et re-télécharger tes fichiers à tout moment.
+                </p>
+                <a href="${p.siteUrl}/#compte"
+                   style="display:inline-block;background:linear-gradient(135deg,#b400ff,#7000cc);color:#fff;font-size:12px;font-weight:bold;text-decoration:none;padding:8px 18px;border-radius:8px;letter-spacing:0.5px;">
+                  Créer mon compte →
+                </a>
+              </div>
+              ` : ""}
             </td>
           </tr>
 

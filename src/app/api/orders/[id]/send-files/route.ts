@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthedUser } from "@/lib/auth";
 import pool, { queryOne, getSetting } from "@/lib/db";
 import { sendDownloadLinkEmail } from "@/lib/email";
+import mysql from "mysql2/promise";
 
 export async function POST(
   req: NextRequest,
@@ -32,6 +33,12 @@ export async function POST(
     const contactEmail = (await getSetting("contact_email")) ?? "contact@toxic-beats.fr";
     const licenseType  = order.product_type === "kit" ? "kit" : (order.license_type ?? "mp3");
 
+    const [accountRows] = await pool.query<mysql.RowDataPacket[]>(
+      "SELECT id FROM users WHERE email = ? LIMIT 1",
+      [order.buyer_email],
+    );
+    const hasAccount = accountRows.length > 0;
+
     await sendDownloadLinkEmail({
       buyerName:       order.buyer_name,
       buyerEmail:      order.buyer_email,
@@ -40,6 +47,7 @@ export async function POST(
       downloadPageUrl: downloadUrl,
       contactEmail,
       siteUrl,
+      hasAccount,
     });
 
     const now      = new Date().toISOString();
