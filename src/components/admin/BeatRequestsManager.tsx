@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Loader2, ChevronDown, ChevronUp, Send, Clock, CheckCircle, XCircle, Zap, Trash2 } from "lucide-react";
+import { Loader2, ChevronDown, ChevronUp, Send, Clock, CheckCircle, XCircle, Zap, Trash2, Receipt, Euro } from "lucide-react";
 
 type BeatRequest = {
   id: string;
@@ -47,6 +47,11 @@ export default function BeatRequestsManager() {
   const [replyBody, setReplyBody] = useState<Record<string, string>>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [replySuccess, setReplySuccess] = useState<string | null>(null);
+  const [invoiceOpen, setInvoiceOpen] = useState<string | null>(null);
+  const [invoiceTitle, setInvoiceTitle] = useState<Record<string, string>>({});
+  const [invoiceAmount, setInvoiceAmount] = useState<Record<string, string>>({});
+  const [invoiceSending, setInvoiceSending] = useState<string | null>(null);
+  const [invoiceSuccess, setInvoiceSuccess] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,6 +164,38 @@ export default function BeatRequestsManager() {
     });
     setRequests(prev => prev.map(r => r.id === id ? { ...r, notes: notes[id] ?? "" } : r));
     setSavingId(null);
+  }
+
+  function openInvoice(req: BeatRequest) {
+    setInvoiceOpen(req.id);
+    setInvoiceSuccess(null);
+    if (!invoiceTitle[req.id]) {
+      setInvoiceTitle(t => ({ ...t, [req.id]: req.project_type || req.style || "Beat sur mesure" }));
+    }
+    if (!invoiceAmount[req.id] && req.budget) {
+      // Extraire un nombre du budget si possible (ex: "100€", "100-200€")
+      const match = req.budget.match(/\d+/);
+      if (match) setInvoiceAmount(a => ({ ...a, [req.id]: match[0] }));
+    }
+  }
+
+  async function sendInvoice(id: string) {
+    setInvoiceSending(id);
+    const token = getToken();
+    const res = await fetch(`/api/admin/beat-requests/${id}/invoice`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ title: invoiceTitle[id] ?? "", amount: parseFloat(invoiceAmount[id] ?? "0") }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setInvoiceSuccess(id);
+      // Mettre le statut en in_progress si encore new
+      setRequests(prev => prev.map(r => r.id === id && r.status === "new" ? { ...r, status: "in_progress" } : r));
+    } else {
+      alert(data.error ?? "Erreur lors de la facturation.");
+    }
+    setInvoiceSending(null);
   }
 
   const filtered = filter === "all" ? requests : requests.filter(r => r.status === filter);
@@ -279,6 +316,15 @@ export default function BeatRequestsManager() {
                           : { borderColor: "#2a2a2a", color: "#aaa" }}>
                         <Send size={13} /> Répondre par email
                       </button>
+                      {req.status !== "declined" && (
+                        <button onClick={() => invoiceOpen === req.id ? setInvoiceOpen(null) : openInvoice(req)}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono border transition-colors"
+                          style={invoiceOpen === req.id
+                            ? { background: "#39ff1422", color: "#39ff14", borderColor: "#39ff1444" }
+                            : { borderColor: "#2a2a2a", color: "#aaa" }}>
+                          <Receipt size={13} /> Facturer le client
+                        </button>
+                      )}
                       {(["new", "in_progress", "completed", "declined"] as const).map(s => {
                         if (s === req.status) return null;
                         const c = STATUS_CONFIG[s];
@@ -342,6 +388,52 @@ export default function BeatRequestsManager() {
                                 style={{ background: "linear-gradient(135deg, #b400ff, #9000cc)" }}>
                                 {sendingReply === req.id ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                                 Envoyer
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Formulaire de facturation */}
+                    {invoiceOpen === req.id && (
+                      <div className="bg-[#001a00] border border-[#39ff1433] rounded-xl p-4 space-y-3">
+                        <p className="text-xs font-mono uppercase tracking-widest text-[#39ff14]">
+                          Facturer {req.name} · <span className="text-neutral-500">{req.email}</span>
+                        </p>
+                        {invoiceSuccess === req.id ? (
+                          <div className="flex items-center gap-2 py-3 text-[#39ff14] text-sm font-mono">
+                            <CheckCircle size={16} /> Commande créée et email de paiement envoyé !
+                          </div>
+                        ) : (
+                          <>
+                            <input
+                              type="text"
+                              value={invoiceTitle[req.id] ?? ""}
+                              onChange={e => setInvoiceTitle(s => ({ ...s, [req.id]: e.target.value }))}
+                              placeholder="Titre du projet (ex : Beat Afro Drill)"
+                              className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#39ff1480] transition-colors"
+                            />
+                            <div className="relative">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 text-sm font-mono">€</span>
+                              <input
+                                type="number"
+                                min="1"
+                                step="0.01"
+                                value={invoiceAmount[req.id] ?? ""}
+                                onChange={e => setInvoiceAmount(s => ({ ...s, [req.id]: e.target.value }))}
+                                placeholder="Montant (ex : 150)"
+                                className="w-full bg-[#111] border border-[#2a2a2a] rounded-lg pl-7 pr-3 py-2 text-white text-sm focus:outline-none focus:border-[#39ff1480] transition-colors"
+                              />
+                            </div>
+                            <div className="flex justify-end">
+                              <button
+                                onClick={() => sendInvoice(req.id)}
+                                disabled={invoiceSending === req.id || !invoiceTitle[req.id]?.trim() || !invoiceAmount[req.id]}
+                                className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold text-black transition-all hover:scale-105 disabled:opacity-50"
+                                style={{ background: "linear-gradient(135deg, #39ff14, #22cc00)" }}>
+                                {invoiceSending === req.id ? <Loader2 size={14} className="animate-spin" /> : <Receipt size={14} />}
+                                Envoyer la facture
                               </button>
                             </div>
                           </>
