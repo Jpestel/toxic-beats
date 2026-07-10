@@ -89,11 +89,12 @@ export type Order = {
   token_used: boolean;
   notes?: string;
   preview_url?: string | null;
-  product_type?: "beat" | "kit";
+  product_type?: "beat" | "kit" | "custom";
   kit_id?: string | null;
   files_sent_at?: string | null;
   files_sent_history?: string[] | null;
   downloaded_at?: string[] | null;
+  custom_files?: string[] | null;
   archived_at?: string | null;
   created_at: string;
   has_account?: boolean;

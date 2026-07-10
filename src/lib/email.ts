@@ -436,3 +436,69 @@ export async function sendOrderConfirmationEmail(params: OrderEmailParams): Prom
     console.error("[email] Erreur Resend :", error);
   }
 }
+
+export async function sendCustomDownloadNotificationEmail(params: {
+  adminEmail: string;
+  buyerName: string;
+  buyerEmail: string;
+  projectTitle: string;
+  downloadedAt: string;
+  adminOrderUrl: string;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || apiKey === "re_VOTRE_CLE_ICI") return;
+
+  const resend = new Resend(apiKey);
+  const from = `${process.env.RESEND_FROM_NAME ?? "TOXIC Beatmaker"} <${process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"}>`;
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#080808;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:40px 20px;"><tr><td align="center">
+<table width="100%" style="max-width:480px;background:#111;border-radius:16px;border:1px solid #2a2a2a;overflow:hidden;">
+  <tr><td style="background:linear-gradient(135deg,#39ff14,#22cc00);padding:20px 24px;text-align:center;">
+    <div style="font-size:28px;font-weight:900;color:#000;letter-spacing:4px;">TOXIC</div>
+    <div style="font-size:10px;color:#00000099;letter-spacing:6px;margin-top:2px;">BEATMAKER · ADMIN</div>
+  </td></tr>
+  <tr><td style="padding:24px;">
+    <p style="color:#39ff14;font-size:13px;font-family:monospace;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;">📥 Fichiers téléchargés</p>
+    <p style="color:#e0e0e0;font-size:15px;margin:0 0 20px;">
+      <strong style="color:#fff;">${params.buyerName}</strong> vient de télécharger ses fichiers.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;margin-bottom:20px;">
+      <tr><td style="padding:12px 16px;border-bottom:1px solid #2a2a2a;">
+        <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Client</div>
+        <div style="color:#fff;font-size:14px;">${params.buyerName} · <a href="mailto:${params.buyerEmail}" style="color:#b400ff;text-decoration:none;">${params.buyerEmail}</a></div>
+      </td></tr>
+      <tr><td style="padding:12px 16px;border-bottom:1px solid #2a2a2a;">
+        <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Projet</div>
+        <div style="color:#fff;font-size:14px;font-family:monospace;">${params.projectTitle}</div>
+      </td></tr>
+      <tr><td style="padding:12px 16px;">
+        <div style="font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Téléchargé le</div>
+        <div style="color:#39ff14;font-size:13px;font-family:monospace;">${params.downloadedAt}</div>
+      </td></tr>
+    </table>
+    <p style="color:#888;font-size:13px;margin:0 0 16px;line-height:1.6;">
+      Tu peux maintenant <strong style="color:#fff;">supprimer les fichiers</strong> du serveur depuis l'admin si tu le souhaites.
+    </p>
+    <div style="text-align:center;">
+      <a href="${params.adminOrderUrl}" style="display:inline-block;background:linear-gradient(135deg,#39ff14,#22cc00);color:#000;font-weight:bold;font-size:13px;text-decoration:none;padding:12px 24px;border-radius:10px;letter-spacing:0.5px;">
+        Voir la commande dans l'admin →
+      </a>
+    </div>
+  </td></tr>
+  <tr><td style="padding:12px 24px;border-top:1px solid #1a1a1a;text-align:center;">
+    <p style="margin:0;font-size:11px;color:#444;">© TOXIC Beatmaker · Admin</p>
+  </td></tr>
+</table>
+</td></tr></table>
+</body></html>`;
+
+  const { error } = await resend.emails.send({
+    from,
+    to: params.adminEmail,
+    subject: `📥 Fichiers téléchargés — ${params.projectTitle} (${params.buyerName})`,
+    html,
+  });
+  if (error) console.error("[email] Erreur notif téléchargement custom :", error);
+}

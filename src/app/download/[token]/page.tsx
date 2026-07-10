@@ -3,7 +3,7 @@ import { Download, Music, CheckCircle, AlertCircle, Package } from "lucide-react
 
 type FlatOrderRow = {
   id: string; status: string; product_type: string; license_type: string | null;
-  beat_title: string; token_expires_at: string;
+  beat_title: string; token_expires_at: string; custom_files: string | null;
   b_title: string | null; genre: string | null; b_img: string | null;
   full_file_path: string | null; wav_file_path: string | null; stems_zip_path: string | null;
   k_title: string | null; k_img: string | null;
@@ -11,7 +11,7 @@ type FlatOrderRow = {
 
 async function getOrder(token: string) {
   const row = await queryOne<FlatOrderRow>(
-    `SELECT o.id, o.status, o.product_type, o.license_type, o.beat_title, o.token_expires_at,
+    `SELECT o.id, o.status, o.product_type, o.license_type, o.beat_title, o.token_expires_at, o.custom_files,
             b.title AS b_title, b.genre, b.image_url AS b_img,
             b.full_file_path, b.wav_file_path, b.stems_zip_path,
             k.title AS k_title, k.image_url AS k_img
@@ -26,6 +26,7 @@ async function getOrder(token: string) {
     id: row.id, status: row.status, product_type: row.product_type,
     license_type: row.license_type, beat_title: row.beat_title,
     token_expires_at: row.token_expires_at,
+    custom_files: (() => { try { return JSON.parse(row.custom_files ?? "[]") as string[]; } catch { return [] as string[]; } })(),
     beats: row.product_type === "beat" ? {
       title: row.b_title ?? row.beat_title,
       genre: row.genre ?? "",
@@ -82,6 +83,78 @@ export default async function DownloadPage({
         title="Lien expiré"
         message="Ce lien de téléchargement a expiré (valide 48h). Contacte-nous pour en obtenir un nouveau."
       />
+    );
+  }
+
+  // ── COMMANDE SUR MESURE ──────────────────────────────────────────────────
+  if (order.product_type === "custom") {
+    const files = order.custom_files ?? [];
+    return (
+      <div className="min-h-screen bg-[#080808] flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="rounded-2xl border border-[#2a2a2a] bg-[#111] overflow-hidden"
+            style={{ boxShadow: "0 0 60px rgba(57,255,20,0.12)" }}>
+            <div className="h-[3px] w-full" style={{ background: "linear-gradient(90deg,#39ff14,#22cc00)" }} />
+            <div className="px-6 py-5 border-b border-[#1a1a1a]">
+              <div className="flex items-center gap-3">
+                <CheckCircle size={20} className="text-[#39ff14] flex-shrink-0" style={{ filter: "drop-shadow(0 0 6px #39ff1480)" }} />
+                <div>
+                  <p className="text-xs font-mono tracking-widest text-[#39ff14] uppercase">Beat sur mesure</p>
+                  <p className="text-white font-black text-lg">{order.beat_title}</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-5">
+              {files.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-neutral-500 text-sm font-mono">Les fichiers ne sont pas encore disponibles.</p>
+                  <p className="text-neutral-600 text-xs mt-2">Contacte-nous si tu as déjà effectué ton paiement.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-neutral-600 mb-3">
+                    {files.length} fichier{files.length > 1 ? "s" : ""} disponible{files.length > 1 ? "s" : ""}
+                  </p>
+                  {files.map((filename) => {
+                    const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+                    const extColors: Record<string, string> = {
+                      mp3: "#b400ff", wav: "#00f5ff", zip: "#f59e0b",
+                      aiff: "#00f5ff", flac: "#00f5ff",
+                    };
+                    const color = extColors[ext] ?? "#888";
+                    return (
+                      <a key={filename}
+                        href={`/api/download/${token}?file=custom&name=${encodeURIComponent(filename)}`}
+                        download={filename}
+                        className="flex items-center justify-between w-full px-5 py-4 rounded-xl font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] text-black"
+                        style={{ background: `linear-gradient(135deg,${color},${color}bb)`, boxShadow: `0 0 18px ${color}40` }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Download size={18} />
+                          <div className="text-left">
+                            <p className="font-black tracking-wide truncate max-w-[180px]">{filename}</p>
+                            <p className="text-[11px] font-normal opacity-80">Cliquer pour télécharger</p>
+                          </div>
+                        </div>
+                        <span className="text-xs font-mono opacity-70 uppercase">{ext}</span>
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-xs text-neutral-600 text-center mt-5 leading-relaxed">
+                Ce lien est valable <span className="text-neutral-400">48h</span> à partir de la confirmation du paiement.
+              </p>
+            </div>
+            <div className="px-6 py-3 border-t border-[#1a1a1a] text-center">
+              <a href="/" className="text-xs text-neutral-600 hover:text-[#39ff14] transition-colors font-mono tracking-widest uppercase">
+                ← Retour au site
+              </a>
+            </div>
+          </div>
+          <p className="text-center text-xs text-neutral-700 mt-4 font-mono">TOXIC · Beatmaker</p>
+        </div>
+      </div>
     );
   }
 

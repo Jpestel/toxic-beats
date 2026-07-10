@@ -2,10 +2,11 @@
  * /api/download/[token] — sert les fichiers depuis le système de fichiers local.
  */
 import { NextRequest, NextResponse } from "next/server";
-import pool, { queryOne } from "@/lib/db";
+import pool, { queryOne, getSetting } from "@/lib/db";
 import { createReadStream, existsSync, statSync } from "fs";
 import { join } from "path";
 import { Readable } from "stream";
+import { sendCustomDownloadNotificationEmail } from "@/lib/email";
 
 const UPLOAD_BASE = process.env.UPLOAD_SERVER_PATH ?? "/var/www/toxic-files";
 
@@ -13,14 +14,31 @@ async function recordDownload(
   token: string,
   existingDownloads: string[] | null,
   fileType: string,
+  notifyAdmin?: {
+    buyerName: string; buyerEmail: string; projectTitle: string; orderId: string;
+  },
 ) {
   try {
     const entry   = `${new Date().toISOString()}|${fileType}`;
     const history = existingDownloads ?? [];
+    const isFirst = history.length === 0;
     await pool.execute(
       "UPDATE orders SET token_used = 1, downloaded_at = ? WHERE download_token = ?",
       [JSON.stringify([...history, entry]), token],
     );
+    // Notification email Lucas au premier téléchargement d'une commande custom
+    if (isFirst && notifyAdmin) {
+      const adminEmail = await getSetting("contact_email") ?? "contact@toxic-files.com";
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
+      sendCustomDownloadNotificationEmail({
+        adminEmail,
+        buyerName:     notifyAdmin.buyerName,
+        buyerEmail:    notifyAdmin.buyerEmail,
+        projectTitle:  notifyAdmin.projectTitle,
+        downloadedAt:  new Date().toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }),
+        adminOrderUrl: `${siteUrl}/admin`,
+      }).catch(console.error);
+    }
   } catch (e) {
     console.error("[recordDownload]", e);
   }
@@ -47,18 +65,21 @@ export async function GET(
 ) {
   const { token }  = await params;
   const fileType   = req.nextUrl.searchParams.get("file") ?? "mp3";
+  const customName = req.nextUrl.searchParams.get("name");
 
   try {
     const order = await queryOne<{
-      status: string; token_expires_at: string; license_type: string;
+      id: string; status: string; token_expires_at: string; license_type: string;
       product_type: string; kit_id: string | null; beat_title: string;
-      downloaded_at: string[] | null;
+      buyer_name: string; buyer_email: string;
+      downloaded_at: string[] | null; custom_files: string | null;
       beat_title2: string; full_file_path: string | null;
       wav_file_path: string | null; stems_zip_path: string | null;
       kit_zip_path: string | null; kit_title: string | null;
     }>(
-      `SELECT o.status, o.token_expires_at, o.license_type, o.product_type,
-              o.kit_id, o.beat_title, o.downloaded_at,
+      `SELECT o.id, o.status, o.token_expires_at, o.license_type, o.product_type,
+              o.kit_id, o.beat_title, o.buyer_name, o.buyer_email,
+              o.downloaded_at, o.custom_files,
               b.title AS beat_title2, b.full_file_path, b.wav_file_path, b.stems_zip_path,
               k.zip_path AS kit_zip_path, k.title AS kit_title
        FROM orders o
@@ -72,6 +93,39 @@ export async function GET(
     if (order.status !== "paid")             return NextResponse.json({ error: "Commande non confirmée" }, { status: 403 });
     if (new Date(order.token_expires_at) < new Date())
                                              return NextResponse.json({ error: "Ce lien a expiré" },       { status: 410 });
+
+    // ── COMMANDE SUR MESURE (custom) ─────────────────────────────────────────
+    if (order.product_type === "custom") {
+      const customFiles: string[] = (() => {
+        try { return JSON.parse(order.custom_files ?? "[]"); } catch { return []; }
+      })();
+
+      if (!customFiles.length) {
+        return NextResponse.json({ error: "Aucun fichier disponible pour cette commande" }, { status: 404 });
+      }
+
+      const filename = customName && customFiles.includes(customName) ? customName : customFiles[0];
+      const filePath = join(UPLOAD_BASE, "custom", order.id, filename);
+
+      if (!existsSync(filePath)) {
+        return NextResponse.json({ error: "Fichier introuvable sur le serveur" }, { status: 404 });
+      }
+
+      const ext = filename.split(".").pop()?.toLowerCase() ?? "bin";
+      const mimeMap: Record<string, string> = {
+        mp3: "audio/mpeg", wav: "audio/wav", zip: "application/zip",
+        aiff: "audio/aiff", flac: "audio/flac", pdf: "application/pdf",
+      };
+
+      await recordDownload(token, order.downloaded_at, `custom:${filename}`, {
+        buyerName:    order.buyer_name,
+        buyerEmail:   order.buyer_email,
+        projectTitle: order.beat_title,
+        orderId:      order.id,
+      });
+
+      return streamFile(filePath, filename, mimeMap[ext] ?? "application/octet-stream");
+    }
 
     // ── ZIP ──────────────────────────────────────────────────────────────────
     if (fileType === "zip") {

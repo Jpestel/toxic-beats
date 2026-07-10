@@ -1144,6 +1144,43 @@ function OrderRow({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
 
+  // Upload custom files state
+  const [customFiles, setCustomFiles] = useState<string[]>(order.custom_files ?? []);
+  const [uploadingCustom, setUploadingCustom] = useState(false);
+  const [deletingCustomFile, setDeletingCustomFile] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const uploadCustomFiles = async (files: FileList) => {
+    setUploadingCustom(true);
+    const token = getToken();
+    const fd = new FormData();
+    for (const f of Array.from(files)) fd.append("files", f);
+    const res = await fetch(`/api/orders/${order.id}/upload-custom`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    });
+    const data = await res.json();
+    if (data.files) setCustomFiles(data.files);
+    else alert(data.error ?? "Erreur upload");
+    setUploadingCustom(false);
+  };
+
+  const deleteCustomFile = async (filename?: string) => {
+    if (!confirm(filename ? `Supprimer "${filename}" du serveur ?` : "Supprimer tous les fichiers de cette commande ?")) return;
+    setDeletingCustomFile(filename ?? "__all__");
+    const token = getToken();
+    const res = await fetch(`/api/orders/${order.id}/delete-custom-files`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(filename ? { filename } : {}),
+    });
+    const data = await res.json();
+    if (data.files !== undefined) setCustomFiles(data.files);
+    else alert(data.error ?? "Erreur suppression");
+    setDeletingCustomFile(null);
+  };
+
   const togglePreview = () => {
     if (!order.preview_url) return;
     if (!audioRef.current) {
@@ -1220,7 +1257,12 @@ function OrderRow({
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             <p className="text-xs text-neutral-600 font-mono flex items-center gap-2 flex-wrap">
               {order.beat_title} ·{" "}
-              {order.product_type === "kit" ? (
+              {order.product_type === "custom" ? (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded font-mono"
+                  style={{ background: "#39ff1420", color: "#39ff14" }}>
+                  SUR MESURE
+                </span>
+              ) : order.product_type === "kit" ? (
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded font-mono"
                   style={{ background: "#f59e0b20", color: "#f59e0b" }}>
                   KIT
@@ -1299,6 +1341,52 @@ function OrderRow({
 
           {order.notes && (
             <p className="text-xs text-neutral-500 mt-1 italic">{order.notes}</p>
+          )}
+
+          {/* Gestion fichiers custom (commandes sur mesure) */}
+          {order.product_type === "custom" && order.status === "paid" && (
+            <div className="mt-3 p-3 rounded-xl border" style={{ background: "#001a0044", borderColor: "#39ff1422" }}>
+              <p className="text-[10px] font-mono uppercase tracking-widest text-[#39ff1488] mb-2">Fichiers à livrer</p>
+              {customFiles.length > 0 && (
+                <div className="space-y-1 mb-2">
+                  {customFiles.map(f => (
+                    <div key={f} className="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-[#1a1a1a]">
+                      <span className="text-xs font-mono text-neutral-300 truncate">{f}</span>
+                      <button
+                        onClick={() => deleteCustomFile(f)}
+                        disabled={deletingCustomFile === f}
+                        className="text-[10px] font-mono text-neutral-600 hover:text-red-400 transition-colors flex-shrink-0"
+                        title="Supprimer ce fichier"
+                      >
+                        {deletingCustomFile === f ? <Loader2 size={11} className="animate-spin" /> : "✕"}
+                      </button>
+                    </div>
+                  ))}
+                  {customFiles.length > 1 && (
+                    <button onClick={() => deleteCustomFile()}
+                      disabled={deletingCustomFile === "__all__"}
+                      className="text-[10px] font-mono text-neutral-600 hover:text-red-400 transition-colors mt-1">
+                      {deletingCustomFile === "__all__" ? "Suppression…" : "🗑 Tout supprimer"}
+                    </button>
+                  )}
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={e => { if (e.target.files?.length) uploadCustomFiles(e.target.files); }}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingCustom}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 disabled:opacity-60"
+                style={{ background: "linear-gradient(135deg,#39ff14,#22cc00)", color: "#000" }}
+              >
+                {uploadingCustom ? <><Loader2 size={12} className="animate-spin" /> Upload…</> : <>{customFiles.length > 0 ? "➕ Ajouter des fichiers" : "⬆ Uploader les fichiers"}</>}
+              </button>
+            </div>
           )}
 
           {/* Notice compte client */}
