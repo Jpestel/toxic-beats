@@ -1,15 +1,10 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "TOXIC | Beatmaker",
   description: "Beats RAP, Electro & plus — produits par TOXIC",
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
 };
 
 export default function RootLayout({
