@@ -51,6 +51,7 @@ export default function HomePage() {
   const [loadingKits, setLoadingKits] = useState(true);
   const [activeGenre, setActiveGenre] = useState("Tous");
   const [activeStatus, setActiveStatus] = useState<"tous" | "available" | "reserved" | "sold">("tous");
+  const [searchQuery, setSearchQuery] = useState("");
   const [beatPage, setBeatPage] = useState(0);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartNotif, setCartNotif] = useState<{ beat: Beat; price: number; licenseType: LicenseType } | null>(null);
@@ -261,13 +262,15 @@ export default function HomePage() {
   const filtered = beats
     .filter((b) => b.visible !== false)
     .filter((b) => activeGenre === "Tous" || b.genre === activeGenre)
-    .filter((b) => activeStatus === "tous" || b.status === activeStatus);
+    .filter((b) => activeStatus === "tous" || b.status === activeStatus)
+    .filter((b) => !searchQuery || b.title.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const totalPages = Math.ceil(filtered.length / theme.beats_per_page);
   const paginated = filtered.slice(beatPage * theme.beats_per_page, (beatPage + 1) * theme.beats_per_page);
 
   const setGenre = (g: string) => { setActiveGenre(g); setBeatPage(0); };
   const setStatus = (s: typeof activeStatus) => { setActiveStatus(s); setBeatPage(0); };
+  const setSearch = (q: string) => { setSearchQuery(q); setBeatPage(0); };
 
   return (
     <div className="min-h-screen grid-bg" style={{ background: theme.color_bg }}>
@@ -505,6 +508,24 @@ export default function HomePage() {
             <p className="text-xs font-mono tracking-[0.4em] uppercase mb-3" style={{ color: theme.color_accent }}>◆ CATALOGUE ◆</p>
             <h2 className="text-4xl md:text-5xl font-black text-white">MES BEATS</h2>
             <div className="w-24 h-[2px] mx-auto mt-4" style={{ background: `linear-gradient(90deg, transparent, ${theme.color_accent}, transparent)` }} />
+          </div>
+
+          {/* Barre de recherche */}
+          <div className="relative max-w-sm mx-auto mb-5">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher un titre…"
+              className="w-full bg-[#111] border rounded-full px-5 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none transition-colors font-mono"
+              style={{ borderColor: searchQuery ? theme.color_accent + "80" : "#2a2a2a", boxShadow: searchQuery ? `0 0 12px ${theme.color_accent}20` : "none" }}
+            />
+            {searchQuery && (
+              <button onClick={() => setSearch("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white transition-colors text-xs">
+                ✕
+              </button>
+            )}
           </div>
 
           {/* Genre filter */}
