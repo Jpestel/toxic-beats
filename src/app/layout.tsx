@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   description: "Beats RAP, Electro & plus — produits par TOXIC",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: {
