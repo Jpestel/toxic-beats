@@ -85,7 +85,8 @@ export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, 
 
   const handleEnded = () => setPlaying(false);
 
-  const shareUrl = siteUrl || (typeof window !== "undefined" ? window.location.origin : "");
+  const baseUrl = siteUrl || (typeof window !== "undefined" ? window.location.origin : "");
+  const shareUrl = `${baseUrl}/#beat-${beat.id}`;
   const shareText = `🎵 Écoute "${beat.title}" par TOXIC Beatmaker`;
 
   const SHARE_OPTIONS = [
@@ -122,6 +123,7 @@ export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, 
 
   return (
     <div
+      id={`beat-${beat.id}`}
       className="relative border border-[#2a2a2a] bg-[#111111] overflow-hidden group transition-all duration-300"
       style={{
         borderRadius: "var(--card-radius, 16px)",

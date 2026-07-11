@@ -236,6 +236,22 @@ export default function HomePage() {
       .then(r => r.json())
       .then(d => setShareNetworks(d.networks ?? {}))
       .catch(() => {});
+    // Scroll vers un beat partagé via #beat-{id}
+    const hash = window.location.hash;
+    if (hash.startsWith("#beat-")) {
+      const beatId = hash.slice(6);
+      const tryScroll = (attempts = 0) => {
+        const el = document.getElementById(`beat-${beatId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.style.outline = "2px solid #b400ff";
+          setTimeout(() => { el.style.outline = ""; }, 2000);
+        } else if (attempts < 10) {
+          setTimeout(() => tryScroll(attempts + 1), 300);
+        }
+      };
+      tryScroll();
+    }
   }, []);
 
   const genreColors: Record<string, string> = Object.fromEntries(genres.map(g => [g.name, g.color]));
