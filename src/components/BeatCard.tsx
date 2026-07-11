@@ -1,17 +1,20 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, ShoppingCart, Music } from "lucide-react";
+import { Play, Pause, ShoppingCart, Music, Share2, Check, X } from "lucide-react";
 import type { Beat, LicenseType } from "@/types";
+
+type ShareNetworks = Record<string, boolean>;
 
 type Props = {
   beat: Beat;
   onBuy: (beat: Beat, licenseType: LicenseType) => void;
-  /** Licences déjà dans le panier pour ce beat */
   cartLicenses?: LicenseType[];
   genreColors?: Record<string, string>;
   genreCovers?: Record<string, string>;
   coverLibrary?: string[];
+  shareNetworks?: ShareNetworks;
+  siteUrl?: string;
 };
 
 function pickFromLibrary(id: string, library: string[]): string | null {
@@ -27,10 +30,12 @@ const LICENSE_LABELS: Record<LicenseType, string> = {
   exclusive: "ZIP EXCLU",
 };
 
-export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, genreCovers, coverLibrary }: Props) {
+export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, genreCovers, coverLibrary, shareNetworks = {}, siteUrl = "" }: Props) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [selectedLicense, setSelectedLicense] = useState<LicenseType>("mp3");
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const hasWav = beat.wav_extra != null;
@@ -79,6 +84,27 @@ export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, 
   };
 
   const handleEnded = () => setPlaying(false);
+
+  const shareUrl = siteUrl || (typeof window !== "undefined" ? window.location.origin : "");
+  const shareText = `🎵 Écoute "${beat.title}" par TOXIC Beatmaker`;
+
+  const SHARE_OPTIONS = [
+    { id: "whatsapp", label: "WhatsApp", icon: "💬", href: `https://wa.me/?text=${encodeURIComponent(shareText + " " + shareUrl)}` },
+    { id: "twitter",  label: "X",        icon: "𝕏",  href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}` },
+    { id: "facebook", label: "Facebook", icon: "📘", href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(shareText)}` },
+    { id: "sms",      label: "SMS",      icon: "📱", href: `sms:?body=${encodeURIComponent(shareText + " " + shareUrl)}` },
+  ];
+
+  const activeShareOptions = SHARE_OPTIONS.filter(o => shareNetworks[o.id]);
+  const showCopy = !!shareNetworks["copy"];
+  const hasAnyShare = activeShareOptions.length > 0 || showCopy;
+
+  const copyLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!audioRef.current) return;
@@ -298,6 +324,55 @@ export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, 
             </button>
           )}
         </div>
+
+        {/* Bouton partage */}
+        {hasAnyShare && (
+          <div className="relative mt-2">
+            <button
+              onClick={e => { e.stopPropagation(); setShareOpen(o => !o); }}
+              className="flex items-center justify-center gap-1.5 w-full h-8 rounded-xl text-xs font-mono transition-all"
+              style={shareOpen
+                ? { background: "#ffffff15", border: "1px solid #ffffff30", color: "#fff" }
+                : { background: "#ffffff08", border: "1px solid #ffffff15", color: "#666" }}
+            >
+              <Share2 size={12} /> Partager
+            </button>
+
+            {shareOpen && (
+              <div
+                className="absolute bottom-10 left-0 right-0 z-20 rounded-xl border p-3 space-y-2"
+                style={{ background: "#161616", borderColor: "#2a2a2a", boxShadow: "0 -8px 32px rgba(0,0,0,0.6)" }}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-mono text-neutral-500 uppercase tracking-widest">Partager ce beat</span>
+                  <button onClick={() => setShareOpen(false)} className="text-neutral-600 hover:text-white transition-colors">
+                    <X size={12} />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {activeShareOptions.map(o => (
+                    <a key={o.id} href={o.href} target="_blank" rel="noopener noreferrer"
+                      onClick={() => setShareOpen(false)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all hover:scale-105"
+                      style={{ background: "#2a2a2a" }}>
+                      <span>{o.icon}</span> {o.label}
+                    </a>
+                  ))}
+                  {showCopy && (
+                    <button onClick={copyLink}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105"
+                      style={copied
+                        ? { background: "#39ff1420", color: "#39ff14" }
+                        : { background: "#2a2a2a", color: "#fff" }}>
+                      {copied ? <><Check size={11} /> Copié !</> : <>🔗 Copier le lien</>}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

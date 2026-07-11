@@ -119,6 +119,7 @@ export default function HomePage() {
   const [socials, setSocials] = useState<SocialsConfig | null>(null);
   const [genres, setGenres] = useState<GenreConfig[]>([]);
   const [contactEmail, setContactEmail] = useState<string>("contact@toxic.fr");
+  const [shareNetworks, setShareNetworks] = useState<Record<string, boolean>>({});
   const [coverLibrary, setCoverLibrary] = useState<string[]>([]);
   const [credits, setCredits] = useState<Credit[]>([]);
   const [showBackTop, setShowBackTop] = useState(false);
@@ -229,6 +230,11 @@ export default function HomePage() {
     fetch("/api/settings/site")
       .then(r => r.json())
       .then(d => { if (d.contact_email) setContactEmail(d.contact_email); })
+      .catch(() => {});
+    // Charger la config de partage
+    fetch("/api/settings/share")
+      .then(r => r.json())
+      .then(d => setShareNetworks(d.networks ?? {}))
       .catch(() => {});
   }, []);
 
@@ -552,6 +558,8 @@ export default function HomePage() {
                     genreColors={genreColors}
                     genreCovers={genreCovers}
                     coverLibrary={coverLibrary}
+                    shareNetworks={shareNetworks}
+                    siteUrl={typeof window !== "undefined" ? window.location.origin : ""}
                   />
                 ))}
               </div>

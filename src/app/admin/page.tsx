@@ -21,6 +21,7 @@ import BlogManager from "@/components/admin/BlogManager";
 import BeatRequestsManager from "@/components/admin/BeatRequestsManager";
 import ChangePasswordManager from "@/components/admin/ChangePasswordManager";
 import UsersManager from "@/components/admin/UsersManager";
+import ShareManager from "@/components/admin/ShareManager";
 
 const ORDER_PAGE_SIZE = 10;
 const TOXIC_ANALYTICS_URL =
@@ -32,7 +33,7 @@ function getToken(): string | null {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"orders" | "catalogue" | "profil" | "contenu" | "payment" | "site" | "promos" | "analytics" | "requests" | "password" | "users">("orders");
+  const [tab, setTab] = useState<"orders" | "catalogue" | "profil" | "contenu" | "payment" | "site" | "promos" | "analytics" | "requests" | "password" | "users" | "share">("orders");
   const [catalogueSub, setCatalogueSub] = useState<"beats" | "kits">("beats");
   const [profilSub, setProfilSub]       = useState<"bio" | "socials" | "credits">("bio");
   const [contenuSub, setContenuSub]     = useState<"newsletter" | "blog">("newsletter");
@@ -606,6 +607,7 @@ export default function AdminPage() {
               { id: "analytics", label: "Analytics",   icon: <BarChart2   size={20} />, badge: 0 },
               { id: "site",      label: "Site",        icon: <Globe       size={20} />, badge: 0 },
               { id: "users",     label: "Comptes",     icon: <Users       size={20} />, badge: 0 },
+              { id: "share",     label: "Partage",     icon: <Share2      size={20} />, badge: 0 },
               { id: "password",  label: "Compte",      icon: <KeyRound    size={20} />, badge: 0 },
             ] as { id: typeof tab; label: string; icon: React.ReactNode; badge: number }[]).map(t => (
               <button
@@ -659,6 +661,7 @@ export default function AdminPage() {
             { id: "analytics" as const, label: "Analytics",  icon: <BarChart2   size={14} />, badge: 0 },
             { id: "site"      as const, label: "Site",       icon: <Globe       size={14} />, badge: 0 },
             { id: "users"     as const, label: "Comptes",    icon: <Users       size={14} />, badge: 0 },
+            { id: "share"     as const, label: "Partage",    icon: <Share2      size={14} />, badge: 0 },
             { id: "password"  as const, label: "Compte",     icon: <KeyRound    size={14} />, badge: 0 },
           ].map((t) => (
             <button
@@ -763,6 +766,7 @@ export default function AdminPage() {
         {tab === "promos"   && <PromoManager />}
         {tab === "requests" && <BeatRequestsManager />}
         {tab === "users"    && <UsersManager />}
+        {tab === "share"    && <ShareManager />}
         {tab === "password" && <ChangePasswordManager />}
         {tab === "site" && (
           <>
