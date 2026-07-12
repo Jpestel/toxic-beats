@@ -670,7 +670,9 @@ export default function CartModal({ cart, onRemove, onClose, onClearCart }: Prop
                     {promoResult && (
                       <p className={`text-xs mt-1.5 flex items-center gap-1 ${promoResult.valid ? "text-[#39ff14]" : "text-red-400"}`}>
                         {promoResult.valid
-                          ? <><Check size={11} /> Code appliqué — {discount > 0 ? `-${discount}€` : "article offert"}</>
+                          ? promoResult.type === "bogo" && cart.length < 2
+                            ? <><Check size={11} /> Code valide — ajoute un 2ème titre, le moins cher sera offert !</>
+                            : <><Check size={11} /> Code appliqué — {discount > 0 ? `-${discount}€` : "article offert"}</>
                           : promoResult.error
                         }
                       </p>
