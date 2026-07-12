@@ -7,7 +7,7 @@ function getToken() {
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, ToggleLeft, ToggleRight, Tag, RefreshCw } from "lucide-react";
 
-type PromoType = "percentage" | "fixed" | "free_mp3" | "free_wav" | "free_exclusive" | "free_kit";
+type PromoType = "percentage" | "fixed" | "free_mp3" | "free_wav" | "free_exclusive" | "free_kit" | "bogo";
 
 type PromoCode = {
   id: string;
@@ -29,6 +29,7 @@ const TYPE_LABELS: Record<PromoType, string> = {
   free_wav:      "Beat MP3+WAV offert",
   free_exclusive:"Beat Exclusif offert",
   free_kit:      "Kit offert",
+  bogo:          "1 acheté = 1 offert (le - cher)",
 };
 
 const TYPE_COLORS: Record<PromoType, string> = {
@@ -38,6 +39,7 @@ const TYPE_COLORS: Record<PromoType, string> = {
   free_wav:      "#39ff14",
   free_exclusive:"#f59e0b",
   free_kit:      "#f59e0b",
+  bogo:          "#ff6b6b",
 };
 
 const NEEDS_VALUE: PromoType[] = ["percentage", "fixed"];

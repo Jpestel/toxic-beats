@@ -78,6 +78,11 @@ function calcDiscount(promo: PromoResult | null, cart: CartItem[], total: number
       const item = cart.find(i => i.type === "kit");
       return item ? item.price : 0;
     }
+    case "bogo": {
+      if (cart.length < 2) return 0;
+      const prices = cart.map(i => i.price).sort((a, b) => a - b);
+      return prices[0];
+    }
     default: return 0;
   }
 }
