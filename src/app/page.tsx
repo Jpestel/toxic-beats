@@ -121,6 +121,7 @@ export default function HomePage() {
   const [genres, setGenres] = useState<GenreConfig[]>([]);
   const [contactEmail, setContactEmail] = useState<string>("contact@toxic.fr");
   const [shareNetworks, setShareNetworks] = useState<Record<string, boolean>>({});
+  const [likesEnabled, setLikesEnabled] = useState(false);
   const [coverLibrary, setCoverLibrary] = useState<string[]>([]);
   const [credits, setCredits] = useState<Credit[]>([]);
   const [showBackTop, setShowBackTop] = useState(false);
@@ -236,6 +237,11 @@ export default function HomePage() {
     fetch("/api/settings/share")
       .then(r => r.json())
       .then(d => setShareNetworks(d.networks ?? {}))
+      .catch(() => {});
+    // Charger la config de likes
+    fetch("/api/settings/likes")
+      .then(r => r.json())
+      .then(d => setLikesEnabled(!!d.enabled))
       .catch(() => {});
     // Scroll vers un beat partagé via #beat-{id}
     const hash = window.location.hash;
@@ -597,6 +603,7 @@ export default function HomePage() {
                     coverLibrary={coverLibrary}
                     shareNetworks={shareNetworks}
                     siteUrl={typeof window !== "undefined" ? window.location.origin : ""}
+                    likesEnabled={likesEnabled}
                   />
                 ))}
               </div>
@@ -671,6 +678,7 @@ export default function HomePage() {
                     kit={kit}
                     onBuy={addKitToCart}
                     isInCart={cart.some((i) => i.type === "kit" && i.kit.id === kit.id)}
+                    likesEnabled={likesEnabled}
                   />
                 ))}
               </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2, Mail, BookOpen, Mic2, KeyRound, Menu, X, Users } from "lucide-react";
+import { CheckCircle, Clock, XCircle, Copy, RefreshCw, LogOut, Eye, EyeOff, Loader2, ShoppingBag, Music, Globe, UserCircle, Share2, CreditCard, Play, Square, Package, Archive, ChevronRight, HardDrive, Tag, Music2, BarChart2, Mail, BookOpen, Mic2, KeyRound, Menu, X, Users, Heart } from "lucide-react";
 import type { Order } from "@/types";
 import BeatsManager from "@/components/admin/BeatsManager";
 import KitsManager from "@/components/admin/KitsManager";
@@ -22,6 +22,7 @@ import BeatRequestsManager from "@/components/admin/BeatRequestsManager";
 import ChangePasswordManager from "@/components/admin/ChangePasswordManager";
 import UsersManager from "@/components/admin/UsersManager";
 import ShareManager from "@/components/admin/ShareManager";
+import LikesManager from "@/components/admin/LikesManager";
 
 const ORDER_PAGE_SIZE = 10;
 const TOXIC_ANALYTICS_URL =
@@ -33,7 +34,7 @@ function getToken(): string | null {
 }
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"orders" | "catalogue" | "profil" | "contenu" | "payment" | "site" | "promos" | "analytics" | "requests" | "password" | "users" | "share">("orders");
+  const [tab, setTab] = useState<"orders" | "catalogue" | "profil" | "contenu" | "payment" | "site" | "promos" | "analytics" | "requests" | "password" | "users" | "share" | "likes">("orders");
   const [catalogueSub, setCatalogueSub] = useState<"beats" | "kits">("beats");
   const [profilSub, setProfilSub]       = useState<"bio" | "socials" | "credits">("bio");
   const [contenuSub, setContenuSub]     = useState<"newsletter" | "blog">("newsletter");
@@ -608,6 +609,7 @@ export default function AdminPage() {
               { id: "site",      label: "Site",        icon: <Globe       size={20} />, badge: 0 },
               { id: "users",     label: "Comptes",     icon: <Users       size={20} />, badge: 0 },
               { id: "share",     label: "Partage",     icon: <Share2      size={20} />, badge: 0 },
+              { id: "likes",     label: "Likes",       icon: <Heart       size={20} />, badge: 0 },
               { id: "password",  label: "Compte",      icon: <KeyRound    size={20} />, badge: 0 },
             ] as { id: typeof tab; label: string; icon: React.ReactNode; badge: number }[]).map(t => (
               <button
@@ -662,6 +664,7 @@ export default function AdminPage() {
             { id: "site"      as const, label: "Site",       icon: <Globe       size={14} />, badge: 0 },
             { id: "users"     as const, label: "Comptes",    icon: <Users       size={14} />, badge: 0 },
             { id: "share"     as const, label: "Partage",    icon: <Share2      size={14} />, badge: 0 },
+            { id: "likes"     as const, label: "Likes",      icon: <Heart       size={14} />, badge: 0 },
             { id: "password"  as const, label: "Compte",     icon: <KeyRound    size={14} />, badge: 0 },
           ].map((t) => (
             <button
@@ -767,6 +770,7 @@ export default function AdminPage() {
         {tab === "requests" && <BeatRequestsManager />}
         {tab === "users"    && <UsersManager />}
         {tab === "share"    && <ShareManager />}
+        {tab === "likes"    && <LikesManager />}
         {tab === "password" && <ChangePasswordManager />}
         {tab === "site" && (
           <>

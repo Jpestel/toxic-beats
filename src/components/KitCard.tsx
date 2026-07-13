@@ -1,20 +1,43 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Play, Pause, ShoppingCart, Package } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Play, Pause, ShoppingCart, Package, Heart } from "lucide-react";
 import type { Kit } from "@/types";
 
 type Props = {
   kit: Kit;
   onBuy: (kit: Kit) => void;
   isInCart?: boolean;
+  likesEnabled?: boolean;
 };
 
-export default function KitCard({ kit, onBuy, isInCart }: Props) {
+export default function KitCard({ kit, onBuy, isInCart, likesEnabled = false }: Props) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [expanded, setExpanded] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(kit.likes_count ?? 0);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem("toxic_liked_kits") ?? "[]") as string[];
+    setLiked(stored.includes(kit.id));
+  }, [kit.id]);
+
+  const toggleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const stored: string[] = JSON.parse(localStorage.getItem("toxic_liked_kits") ?? "[]");
+    const nowLiked = !liked;
+    const updated = nowLiked ? [...stored, kit.id] : stored.filter(id => id !== kit.id);
+    localStorage.setItem("toxic_liked_kits", JSON.stringify(updated));
+    setLiked(nowLiked);
+    setLikesCount(c => c + (nowLiked ? 1 : -1));
+    fetch(`/api/kits/${kit.id}/like`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: nowLiked ? "like" : "unlike" }),
+    });
+  };
 
   const togglePlay = (e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -167,7 +190,7 @@ export default function KitCard({ kit, onBuy, isInCart }: Props) {
         )}
 
         {/* Boutons */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           {/* Bouton play séparé — desktop seulement */}
           {kit.preview_url && (
             <button
@@ -196,6 +219,19 @@ export default function KitCard({ kit, onBuy, isInCart }: Props) {
             >
               <ShoppingCart size={14} />
               {kit.price}€ — Ajouter
+            </button>
+          )}
+
+          {likesEnabled && (
+            <button
+              onClick={toggleLike}
+              className="flex items-center justify-center gap-1 px-3 h-9 lg:h-11 rounded-xl text-xs font-mono transition-all flex-shrink-0"
+              style={liked
+                ? { background: "#ff6b6b20", border: "1px solid #ff6b6b60", color: "#ff6b6b" }
+                : { background: "#ffffff08", border: "1px solid #ffffff15", color: "#666" }}
+            >
+              <Heart size={14} fill={liked ? "#ff6b6b" : "none"} />
+              {likesCount > 0 && <span>{likesCount}</span>}
             </button>
           )}
         </div>

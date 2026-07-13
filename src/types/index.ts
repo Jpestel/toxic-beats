@@ -25,6 +25,7 @@ export type Beat = {
   stems_zip_path?: string | null;
   key?: string | null;
   duration?: number | null;
+  likes_count?: number;
   created_at: string;
   updated_at?: string | null;
 };
@@ -39,6 +40,7 @@ export type Kit = {
   zip_path: string | null;
   image_url?: string | null;
   status: "available" | "hidden";
+  likes_count?: number;
   created_at: string;
   updated_at?: string | null;
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, ShoppingCart, Music, Share2, Check, X } from "lucide-react";
+import { Play, Pause, ShoppingCart, Music, Share2, Check, X, Heart } from "lucide-react";
 import type { Beat, LicenseType } from "@/types";
 
 type ShareNetworks = Record<string, boolean>;
@@ -15,6 +15,7 @@ type Props = {
   coverLibrary?: string[];
   shareNetworks?: ShareNetworks;
   siteUrl?: string;
+  likesEnabled?: boolean;
 };
 
 function pickFromLibrary(id: string, library: string[]): string | null {
@@ -30,13 +31,35 @@ const LICENSE_LABELS: Record<LicenseType, string> = {
   exclusive: "ZIP EXCLU",
 };
 
-export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, genreCovers, coverLibrary, shareNetworks = {}, siteUrl = "" }: Props) {
+export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, genreCovers, coverLibrary, shareNetworks = {}, siteUrl = "", likesEnabled = false }: Props) {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [selectedLicense, setSelectedLicense] = useState<LicenseType>("mp3");
   const [shareOpen, setShareOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(beat.likes_count ?? 0);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    const stored = JSON.parse(localStorage.getItem("toxic_liked_beats") ?? "[]") as string[];
+    setLiked(stored.includes(beat.id));
+  }, [beat.id]);
+
+  const toggleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const stored: string[] = JSON.parse(localStorage.getItem("toxic_liked_beats") ?? "[]");
+    const nowLiked = !liked;
+    const updated = nowLiked ? [...stored, beat.id] : stored.filter(id => id !== beat.id);
+    localStorage.setItem("toxic_liked_beats", JSON.stringify(updated));
+    setLiked(nowLiked);
+    setLikesCount(c => c + (nowLiked ? 1 : -1));
+    fetch(`/api/beats/${beat.id}/like`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: nowLiked ? "like" : "unlike" }),
+    });
+  };
 
   const hasWav = beat.wav_extra != null;
   const hasExclusive = beat.exclusive_price != null;
@@ -327,9 +350,27 @@ export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, 
           )}
         </div>
 
+        {/* Boutons partage + like */}
+        {(hasAnyShare || likesEnabled) && (
+          <div className="flex gap-2 mt-2">
+
+        {/* Bouton like */}
+        {likesEnabled && (
+          <button
+            onClick={toggleLike}
+            className="flex items-center justify-center gap-1 px-3 h-8 rounded-xl text-xs font-mono transition-all flex-shrink-0"
+            style={liked
+              ? { background: "#ff6b6b20", border: "1px solid #ff6b6b60", color: "#ff6b6b" }
+              : { background: "#ffffff08", border: "1px solid #ffffff15", color: "#666" }}
+          >
+            <Heart size={12} fill={liked ? "#ff6b6b" : "none"} />
+            {likesCount > 0 && <span>{likesCount}</span>}
+          </button>
+        )}
+
         {/* Bouton partage */}
         {hasAnyShare && (
-          <div className="relative mt-2">
+          <div className="relative flex-1">
             <button
               onClick={e => { e.stopPropagation(); setShareOpen(o => !o); }}
               className="flex items-center justify-center gap-1.5 w-full h-8 rounded-xl text-xs font-mono transition-all"
@@ -373,6 +414,9 @@ export default function BeatCard({ beat, onBuy, cartLicenses = [], genreColors, 
                 </div>
               </div>
             )}
+          </div>
+        )}
+
           </div>
         )}
       </div>
