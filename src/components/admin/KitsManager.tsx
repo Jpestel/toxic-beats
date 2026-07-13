@@ -417,11 +417,12 @@ function KitForm({ kit, onSaved, onCancel }: {
       });
       const { kitPreviewSignedUrl, kitPreviewPublicUrl } = await res.json();
 
-      await fetch(kitPreviewSignedUrl, {
+      const uploadRes = await fetch(kitPreviewSignedUrl, {
         method: "PUT",
         body: previewFile,
         headers: { "Content-Type": previewFile.type || "audio/wav" },
       });
+      if (!uploadRes.ok) throw new Error("Upload failed");
 
       setPreviewUrl(kitPreviewPublicUrl);
       setPreviewPath(kitPreviewName);
