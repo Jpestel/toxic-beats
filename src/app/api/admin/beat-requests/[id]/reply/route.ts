@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthedUser, isAdmin } from "@/lib/auth";
 import pool, { queryOne } from "@/lib/db";
-import { sendMail } from "@/lib/mailer";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function checkAdmin(req: NextRequest) {
   const user = await getAuthedUser(req);
@@ -28,7 +30,10 @@ export async function POST(
 
   if (!request) return NextResponse.json({ error: "Demande introuvable." }, { status: 404 });
 
-  const { ok, reason } = await sendMail({
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
+
+  const { error } = await resend.emails.send({
+    from:    fromEmail,
     to:      request.email,
     subject: subject.trim(),
     html: `<!DOCTYPE html>
@@ -51,8 +56,8 @@ export async function POST(
 </body></html>`,
   });
 
-  if (!ok) {
-    console.error("reply send error:", reason);
+  if (error) {
+    console.error("reply send error:", error);
     return NextResponse.json({ error: "Erreur lors de l'envoi." }, { status: 500 });
   }
 

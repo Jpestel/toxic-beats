@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne, execute } from "@/lib/db";
-import { sendMail } from "@/lib/mailer";
+import { Resend } from "resend";
 import crypto from "crypto";
 import { randomUUID } from "crypto";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   try {
@@ -60,7 +62,8 @@ async function sendConfirmEmail(email: string, token: string) {
   const siteUrl    = process.env.NEXT_PUBLIC_SITE_URL || "https://toxic-files.com";
   const confirmUrl = `${siteUrl}/api/newsletter/confirm?token=${token}`;
 
-  await sendMail({
+  await resend.emails.send({
+    from:    process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com",
     to:      email,
     subject: "Confirme ton inscription à la newsletter TOXIC 🎵",
     html: `<!DOCTYPE html>

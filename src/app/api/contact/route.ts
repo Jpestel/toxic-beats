@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSetting } from "@/lib/db";
-import { sendMail } from "@/lib/mailer";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   const { name, email, message, honeypot } = await req.json();
@@ -17,10 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Message trop court." }, { status: 400 });
   }
 
-  const toEmail = (await getSetting("contact_email")) || "noreply@toxic-files.com";
+  const toEmail   = (await getSetting("contact_email")) || process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
 
-  const { ok, reason } = await sendMail({
-    to: toEmail,
+  const { error } = await resend.emails.send({
+    from: fromEmail, to: toEmail, replyTo: email,
     subject: `[Contact TOXIC] ${name}`,
     html: `<!DOCTYPE html>
 <html>
@@ -61,8 +64,8 @@ export async function POST(req: NextRequest) {
 </html>`,
   });
 
-  if (!ok) {
-    console.error("contact send error:", reason);
+  if (error) {
+    console.error("contact send error:", error);
     return NextResponse.json({ error: "Erreur lors de l'envoi. Réessaie plus tard." }, { status: 500 });
   }
 

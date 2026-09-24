@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne, execute } from "@/lib/db";
-import { sendMail } from "@/lib/mailer";
+import { Resend } from "resend";
 import { randomBytes } from "crypto";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   const { email } = await req.json();
@@ -26,8 +28,11 @@ export async function POST(req: NextRequest) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://toxic-files.com";
   const resetUrl = `${siteUrl}/reset-password/${token}`;
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@toxic-files.com";
+  const fromName  = process.env.RESEND_FROM_NAME  ?? "TOXIC FILES";
 
-  const { ok, reason } = await sendMail({
+  const { error: sendError } = await resend.emails.send({
+    from: `${fromName} <${fromEmail}>`,
     to: user.email,
     subject: "Réinitialisation de ton mot de passe",
     html: `
@@ -43,8 +48,8 @@ export async function POST(req: NextRequest) {
     `,
   });
 
-  if (!ok) {
-    console.error("[forgot-password] Erreur envoi email:", reason);
+  if (sendError) {
+    console.error("[forgot-password] Resend error:", sendError);
     return NextResponse.json({ error: "Erreur d'envoi d'email" }, { status: 500 });
   }
 

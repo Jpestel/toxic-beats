@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthedUser, isAdmin } from "@/lib/auth";
 import pool, { queryAll, getSetting, execute } from "@/lib/db";
-import { sendMail } from "@/lib/mailer";
+import { Resend } from "resend";
 import { randomUUID } from "crypto";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function checkAdmin(req: NextRequest) {
   const user = await getAuthedUser(req);
@@ -36,6 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const siteUrl   = process.env.NEXT_PUBLIC_SITE_URL || "https://toxic-files.com";
+  const fromEmail = process.env.RESEND_FROM_EMAIL    || "noreply@toxic-files.com";
   const ccEmail   = await getSetting("contact_email");
 
   const batchSize = 50;
@@ -58,13 +61,16 @@ export async function POST(req: NextRequest) {
     </p>
   </td></tr>
 </table>`;
-        return sendMail({ to: sub.email, subject, html: wrapInTemplate(htmlWithFooter) });
+        return resend.emails.send({
+          from: fromEmail, to: sub.email, subject,
+          html: wrapInTemplate(htmlWithFooter),
+        });
       }),
     );
 
     results.forEach((r, idx) => {
-      if (r.status === "fulfilled" && r.value.ok) sent++;
-      else errors.push(`${batch[idx].email}: ${r.status === "rejected" ? r.reason : r.value.reason}`);
+      if (r.status === "fulfilled") sent++;
+      else errors.push(`${batch[idx].email}: ${r.reason}`);
     });
 
     if (i + batchSize < subscribers.length) {
@@ -85,7 +91,11 @@ export async function POST(req: NextRequest) {
 </p>
 <hr style="border:none;border-top:1px solid #1a1a1a;margin:20px 0;" />
 ${body_html}`;
-    await sendMail({ to: ccEmail, subject: `[COPIE] ${subject}`, html: wrapInTemplate(recapHtml) });
+    await resend.emails.send({
+      from: fromEmail, to: ccEmail,
+      subject: `[COPIE] ${subject}`,
+      html: wrapInTemplate(recapHtml),
+    }).catch(() => {});
   }
 
   return NextResponse.json({ sent, total: subscribers.length, errors: errors.length > 0 ? errors : undefined });
