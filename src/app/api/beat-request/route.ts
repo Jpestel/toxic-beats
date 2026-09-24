@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { execute, getSetting } from "@/lib/db";
-import { Resend } from "resend";
+import { sendMail } from "@/lib/mailer";
 import { randomUUID } from "crypto";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   const { name, email, project_type, style, budget, deadline, inspirations, description, honeypot } = await req.json();
@@ -32,8 +30,7 @@ export async function POST(req: NextRequest) {
     ],
   );
 
-  const toEmail   = (await getSetting("contact_email")) || process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@toxic-files.com";
+  const toEmail = (await getSetting("contact_email")) || "noreply@toxic-files.com";
 
   const rows = [
     ["Nom",             name.trim()],
@@ -45,8 +42,8 @@ export async function POST(req: NextRequest) {
     ["Inspirations",    inspirations || "—"],
   ];
 
-  await resend.emails.send({
-    from: fromEmail, to: toEmail, replyTo: email.trim(),
+  await sendMail({
+    to: toEmail,
     subject: `[Beat sur demande] ${name.trim()}`,
     html: `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>

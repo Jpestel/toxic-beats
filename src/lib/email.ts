@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import { sendMail } from "./mailer";
 
 type PaymentMethod = {
   id: string;
@@ -266,26 +266,13 @@ function buildDownloadEmailHtml(p: DownloadEmailParams): string {
 }
 
 export async function sendDownloadLinkEmail(params: DownloadEmailParams): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey === "re_VOTRE_CLE_ICI") {
-    console.warn("[email] RESEND_API_KEY non configurée — email non envoyé.");
-    return;
-  }
-
-  const resend = new Resend(apiKey);
-  const from = `${process.env.RESEND_FROM_NAME ?? "TOXIC Beatmaker"} <${process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"}>`;
-
   const isKit = params.licenseType === "kit";
-  const { error } = await resend.emails.send({
-    from,
+  const result = await sendMail({
     to: params.buyerEmail,
     subject: isKit ? `⬇ Ton kit est prêt — ${params.beatTitle}` : `⬇ Ton beat est prêt — ${params.beatTitle}`,
     html: buildDownloadEmailHtml(params),
   });
-
-  if (error) {
-    console.error("[email] Erreur Resend download :", error);
-  }
+  if (!result.ok) console.error("[email] Erreur download :", result.reason);
 }
 
 type AdminNewOrderParams = {
@@ -398,56 +385,29 @@ function buildAdminNotifHtml(p: AdminNewOrderParams): string {
 }
 
 export async function sendAdminNewOrderEmail(params: AdminNewOrderParams): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey === "re_VOTRE_CLE_ICI") {
-    console.warn("[email] RESEND_API_KEY non configurée — notif admin non envoyée.");
-    return;
-  }
-
-  const resend = new Resend(apiKey);
-  const from = `${process.env.RESEND_FROM_NAME ?? "TOXIC Beatmaker"} <${process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"}>`;
-
   const subject = params.productType === "kit"
     ? `🔔 Nouvelle commande kit — ${params.productTitle} (${params.amount}€)`
     : `🔔 Nouvelle commande — ${params.productTitle} (${params.amount}€)`;
 
-  const { error } = await resend.emails.send({
-    from,
+  const result = await sendMail({
     to: params.adminEmail,
     subject,
     html: buildAdminNotifHtml(params),
   });
-
-  if (error) {
-    console.error("[email] Erreur notif admin :", error);
-  }
+  if (!result.ok) console.error("[email] Erreur notif admin :", result.reason);
 }
 
 export async function sendOrderConfirmationEmail(params: OrderEmailParams): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey === "re_VOTRE_CLE_ICI") {
-    console.warn("[email] RESEND_API_KEY non configurée — email non envoyé.");
-    return;
-  }
-
-  // Initialisation lazy : uniquement à l'exécution, jamais au build
-  const resend = new Resend(apiKey);
-  const from = `${process.env.RESEND_FROM_NAME ?? "TOXIC Beatmaker"} <${process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"}>`;
-
   const subject = params.beatTitles.length === 1
     ? `🎵 Ta commande — ${params.beatTitles[0]}`
     : `🎵 Ta commande — ${params.beatTitles.length} beats`;
 
-  const { error } = await resend.emails.send({
-    from,
+  const result = await sendMail({
     to: params.buyerEmail,
     subject,
     html: buildOrderEmailHtml(params),
   });
-
-  if (error) {
-    console.error("[email] Erreur Resend :", error);
-  }
+  if (!result.ok) console.error("[email] Erreur confirmation commande :", result.reason);
 }
 
 export async function sendCustomDownloadNotificationEmail(params: {
@@ -458,12 +418,6 @@ export async function sendCustomDownloadNotificationEmail(params: {
   downloadedAt: string;
   adminOrderUrl: string;
 }): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey === "re_VOTRE_CLE_ICI") return;
-
-  const resend = new Resend(apiKey);
-  const from = `${process.env.RESEND_FROM_NAME ?? "TOXIC Beatmaker"} <${process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"}>`;
-
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#080808;font-family:Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:40px 20px;"><tr><td align="center">
@@ -507,11 +461,10 @@ export async function sendCustomDownloadNotificationEmail(params: {
 </td></tr></table>
 </body></html>`;
 
-  const { error } = await resend.emails.send({
-    from,
+  const result = await sendMail({
     to: params.adminEmail,
     subject: `📥 Fichiers téléchargés — ${params.projectTitle} (${params.buyerName})`,
     html,
   });
-  if (error) console.error("[email] Erreur notif téléchargement custom :", error);
+  if (!result.ok) console.error("[email] Erreur notif téléchargement custom :", result.reason);
 }
