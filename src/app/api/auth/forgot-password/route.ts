@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@toxic-files.com";
   const fromName  = process.env.RESEND_FROM_NAME  ?? "TOXIC FILES";
 
-  await resend.emails.send({
+  const { error: sendError } = await resend.emails.send({
     from: `${fromName} <${fromEmail}>`,
     to: user.email,
     subject: "Réinitialisation de ton mot de passe",
@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
       </div>
     `,
   });
+
+  if (sendError) {
+    console.error("[forgot-password] Resend error:", sendError);
+    return NextResponse.json({ error: "Erreur d'envoi d'email" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
